@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "338373027964",
+    "project_id": "dps-eventos",
+    "storage_bucket": "dps-eventos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:338373027964:android:9faecba5f7fba53aec01f9",
+        "android_client_info": {
+          "package_name": "Eventus1.a1.b1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "338373027964-8oehhrobsrd1q28sf08a4ugpbdn3lmup.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCu8JcYM_FyVqLATnDI66oAhxgzyQA9jJI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "338373027964-8oehhrobsrd1q28sf08a4ugpbdn3lmup.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
