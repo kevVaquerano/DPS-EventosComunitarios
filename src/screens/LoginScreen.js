@@ -9,74 +9,168 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (email === '' || password === '') {
-      Alert.alert('Campos vacíos', 'Por favor ingresa tus credenciales.');
+      Alert.alert('Campos vacíos', 'Por favor ingresa tu correo y contraseña.');
       return;
     }
     try {
-      // Validar las credenciales con Firebase
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate('Home'); // Redirige a la pantalla principal
+      navigation.navigate('Home'); 
     } catch (error) {
       Alert.alert('Error de acceso', 'El correo o la contraseña son incorrectos.');
     }
   };
 
-  // Requisito evaluado: Simulación de inicio de sesión con redes sociales
-  const handleSocialLogin = (platform) => {
-    Alert.alert(
-      'Inicio de Sesión', 
-      `Redirigiendo al inicio de sesión seguro con ${platform}...`
-    );
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Gestión de Eventos Comunitarios</Text>
-      
-      <TextInput 
-        style={styles.input} 
-        placeholder="Correo electrónico" 
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      <TextInput 
-        style={styles.input} 
-        placeholder="Contraseña" 
-        secureTextEntry 
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={styles.card}>
+        {/* Títulos principales del diseño */}
+        <Text style={styles.title}>Bienvenido de nuevo</Text>
+        <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+        
+        {/* Input de Correo */}
+        <Text style={styles.label}>Correo electrónico</Text>
+        <TextInput 
+          style={styles.input} 
+          placeholder="tu@email.com" 
+          placeholderTextColor="#aaa"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Iniciar Sesión</Text>
-      </TouchableOpacity>
+        {/* Input de Contraseña */}
+        <Text style={styles.label}>Contraseña</Text>
+        <TextInput 
+          style={styles.input} 
+          placeholder="••••••••" 
+          placeholderTextColor="#aaa"
+          secureTextEntry 
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <Text style={styles.orText}>— O —</Text>
+        {/* Enlace de contraseña olvidada */}
+        <TouchableOpacity onPress={() => Alert.alert('Recuperación', 'Función de recuperación en desarrollo.')}>
+          <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+        </TouchableOpacity>
 
-      {/* Botón de Redes Sociales requerido por la rúbrica */}
-      <TouchableOpacity 
-        style={[styles.button, styles.googleButton]} 
-        onPress={() => handleSocialLogin('Google')}
-      >
-        <Text style={styles.buttonText}>Continuar con Google</Text>
-      </TouchableOpacity>
+        {/* Botón Iniciar Sesión (Negro elegante como tu Figma) */}
+        <TouchableOpacity style={styles.buttonMain} onPress={handleLogin}>
+          <Text style={styles.buttonMainText}>Iniciar sesión</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.linkText}>¿No tienes cuenta? Regístrate aquí</Text>
-      </TouchableOpacity>
+        <Text style={styles.orText}>O continuar con</Text>
+
+        {/* Botón de Google (Requisito de la guía) */}
+        <TouchableOpacity style={styles.buttonSocial} onPress={() => Alert.alert('Google', 'Conectando con Google...')}>
+          <Text style={styles.buttonSocialText}> Letra ɢ  Continuar con Google</Text>
+        </TouchableOpacity>
+
+        {/* Botón de Facebook (Requisito de la guía) */}
+        <TouchableOpacity style={styles.buttonSocial} onPress={() => Alert.alert('Facebook', 'Conectando con Facebook...')}>
+          <Text style={styles.buttonSocialText}> Letra ғ  Continuar con Facebook</Text>
+        </TouchableOpacity>
+
+        {/* Enlace a Registro */}
+        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+          <Text style={styles.registerText}>
+            ¿No tienes cuenta? <Text style={styles.registerBold}>Regístrate</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
+// Estilos que replican exactamente las tarjetas y propiedades de  Figma 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', color: '#222' },
-  input: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
-  button: { padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10, backgroundColor: '#2ecc71' },
-  googleButton: { backgroundColor: '#db4437', marginTop: 5 },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  orText: { textAlign: 'center', marginVertical: 15, color: '#777', alignSelf: 'center' },
-  linkText: { color: '#1E90FF', marginTop: 20, textAlign: 'center' }
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    backgroundColor: '#fff', 
+    padding: 24 
+  },
+  card: { 
+    backgroundColor: '#fff', 
+    padding: 4 
+  },
+  title: { 
+    fontSize: 26, 
+    fontWeight: 'bold', 
+    color: '#000', 
+    textAlign: 'center', 
+    marginBottom: 6 
+  },
+  subtitle: { 
+    fontSize: 14, 
+    color: '#666', 
+    textAlign: 'center', 
+    marginBottom: 32 
+  },
+  label: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#000', 
+    marginBottom: 8 
+  },
+  input: { 
+    backgroundColor: '#f0f0f4', 
+    padding: 16, 
+    borderRadius: 12, 
+    marginBottom: 20, 
+    fontSize: 15, 
+    color: '#000' 
+  },
+  forgotText: { 
+    textAlign: 'right', 
+    color: '#000', 
+    fontSize: 13, 
+    marginBottom: 24, 
+    fontWeight: '600',
+    textDecorationLine: 'underline'
+  },
+  buttonMain: { 
+    backgroundColor: '#02020a', 
+    padding: 18, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  buttonMainText: { 
+    color: '#fff', 
+    fontSize: 15, 
+    fontWeight: 'bold' 
+  },
+  orText: { 
+    textAlign: 'center', 
+    color: '#aaa', 
+    fontSize: 13, 
+    marginVertical: 12 
+  },
+  buttonSocial: { 
+    backgroundColor: '#fff', 
+    padding: 14, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: '#e0e0e0', 
+    marginTop: 12 
+  },
+  buttonSocialText: { 
+    color: '#000', 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
+  registerText: { 
+    textAlign: 'center', 
+    marginTop: 32, 
+    color: '#666', 
+    fontSize: 14 
+  },
+  registerBold: { 
+    fontWeight: 'bold', 
+    color: '#000',
+    textDecorationLine: 'underline'
+  }
 });
