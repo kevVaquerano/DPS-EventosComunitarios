@@ -1,197 +1,114 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView, Platform,
-} from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
-import { auth, db } from '../../api/firebaseConfig';
+import { auth } from '../api/firebase'; // Corrección de la ruta y nombre del archivo
 
-const CATEGORY_ICONS = {
-  'Alimentación': '🍔',
-  'Transporte': '🚗',
-  'Entretenimiento': '🎮',
-  'Salud': '🏥',
-  'Educación': '📚',
-  'Vivienda': '🏠',
-  'Servicios': '💡',
-  'Compras': '🛍️',
-  'Otros': '📦',
-};
+// Datos de prueba simulados para que la comunidad visualice eventos de inmediato
+const EVENTOS_DUMMY = [
+  {
+    id: '1',
+    title: 'Campaña de Reciclaje Local',
+    date: '28 de Mayo, 2026',
+    time: '8:00 AM',
+    location: 'Parque Central de la Comunidad',
+    description: 'Trae tus botellas de plástico, cartón y latas para ayudar a limpiar nuestro entorno.'
+  },
+  {
+    id: '2',
+    title: 'Torneo de Fútbol Comunitario',
+    date: '30 de Mayo, 2026',
+    time: '2:00 PM',
+    location: 'Cancha Municipal',
+    description: 'Inscripciones abiertas para equipos de todas las edades. ¡Premios para los tres primeros lugares!'
+  },
+  {
+    id: '3',
+    title: 'Taller de Huertos Caseros',
+    date: '02 de Junio, 2026',
+    time: '10:00 AM',
+    location: 'Centro Escolar Comunitario',
+    description: 'Aprende a cultivar tus propias verduras y legumbres orgánicas en el patio de tu casa.'
+  }
+];
 
-export default function DashboardScreen({ navigation }) {
-  const [expenses, setExpenses] = useState([]);
-  const [monthlyTotal, setMonthlyTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const user = auth.currentUser;
+export default function HomeScreen({ navigation }) {
+  const [events, setEvents] = useState(EVENTOS_DUMMY);
 
-  const fetchMonthExpenses = async () => {
-    if (!user) return;
-    setLoading(true);
+  // Función obligatoria para salir de la cuenta de Firebase de forma segura
+  const handleSignOut = async () => {
     try {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const expensesRef = collection(db, 'users', user.uid, 'expenses');
-      const q = query(
-        expensesRef,
-        where('date', '>=', Timestamp.fromDate(startOfMonth)),
-        orderBy('date', 'desc'),
-      );
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setExpenses(data);
-      setMonthlyTotal(data.reduce((sum, e) => sum + (e.amount || 0), 0));
+      await signOut(auth);
+      navigation.replace('Login');
     } catch (error) {
-      console.error('Error al cargar gastos:', error);
-    } finally {
-      setLoading(false);
+      Alert.alert('Error', 'No se pudo cerrar la sesión.');
     }
   };
 
-  useEffect(() => { fetchMonthExpenses(); }, []);
-
-  const handleLogout = () => signOut(auth).catch(console.error);
-
-  const monthLabel = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-  const recent = expenses.slice(0, 5);
+  // Renderizador de las tarjetas de los eventos
+  const renderEventItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.eventCard}
+      onPress={() => navigation.navigate('EventDetail', { event: item })} // Conecta con la Persona 3
+    >
+      <Text style={styles.eventTitle}>{item.title}</Text>
+      <Text style={styles.eventDetails}>📅 {item.date} — ⏰ {item.time}</Text>
+      <Text style={styles.eventLocation}>📍 {item.location}</Text>
+      <Text style={styles.eventDescription} numberOfLines={2}>{item.description}</Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
+    <View style={styles.container}>
+      {/* Encabezado Principal */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>Bienvenido 👋</Text>
-          <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
-        </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Salir</Text>
-        </TouchableOpacity>
+        <Text style={styles.welcomeText}>¡Hola, Comunidad!</Text>
+        <Text style={styles.subtitleText}>Explora los eventos próximos disponibles</Text>
       </View>
 
-      {/* Tarjeta total mensual */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Total de {monthLabel}</Text>
-        {loading
-          ? <ActivityIndicator color="#38bdf8" size="large" style={{ marginVertical: 12 }} />
-          : <Text style={styles.cardAmount}>${monthlyTotal.toFixed(2)}</Text>
-        }
-        <Text style={styles.cardSub}>
-          {expenses.length} gasto{expenses.length !== 1 ? 's' : ''} registrado{expenses.length !== 1 ? 's' : ''}
-        </Text>
+      {/* Lista de Eventos (Módulo Gestión de Eventos) */}
+      <FlatList
+        data={events}
+        keyExtractor={(item) => item.id}
+        renderItem={renderEventItem}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={<Text style={styles.emptyText}>No hay eventos comunitarios programados.</Text>}
+      />
+
+      {/* Botonera de Acciones Rápidas */}
+      <View style={styles.footerMenu}>
+        <TouchableOpacity 
+          style={[styles.footerButton, styles.createButton]} 
+          onPress={() => navigation.navigate('CreateEvent')} // Conecta con la Persona 1
+        >
+          <Text style={styles.buttonText}>➕ Crear Evento</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.footerButton, styles.logoutButton]} 
+          onPress={handleSignOut}
+        >
+          <Text style={styles.buttonText}>🚪 Cerrar Sesión</Text>
+        </TouchableOpacity>
       </View>
-
-      {/* Botones de acción */}
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionPrimary} onPress={() => navigation.navigate('AddExpense')}>
-          <Text style={styles.actionIcon}>➕</Text>
-          <Text style={styles.actionTextPrimary}>Agregar{'\n'}Gasto</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionSecondary} onPress={() => navigation.navigate('History')}>
-          <Text style={styles.actionIcon}>📋</Text>
-          <Text style={styles.actionTextSecondary}>Ver{'\n'}Historial</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Gastos recientes */}
-      <Text style={styles.sectionTitle}>Gastos Recientes</Text>
-
-      {loading ? (
-        <ActivityIndicator color="#38bdf8" style={{ marginTop: 24 }} />
-      ) : recent.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>🫙</Text>
-          <Text style={styles.emptyText}>Sin gastos este mes</Text>
-          <Text style={styles.emptySubText}>¡Agrega tu primer gasto!</Text>
-        </View>
-      ) : (
-        recent.map(expense => (
-          <View key={expense.id} style={styles.expenseItem}>
-            <Text style={styles.expenseIcon}>
-              {CATEGORY_ICONS[expense.category] || '📦'}
-            </Text>
-            <View style={styles.expenseInfo}>
-              <Text style={styles.expenseName}>{expense.name}</Text>
-              <Text style={styles.expenseCategory}>{expense.category}</Text>
-            </View>
-            <Text style={styles.expenseAmount}>-${expense.amount?.toFixed(2)}</Text>
-          </View>
-        ))
-      )}
-
-      {expenses.length > 5 && (
-        <TouchableOpacity style={styles.viewAll} onPress={() => navigation.navigate('History')}>
-          <Text style={styles.viewAllText}>Ver todos los gastos →</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
-  content: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 44,
-    paddingBottom: 40,
-  },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  headerLeft: { flex: 1, marginRight: 12 },
-  greeting: { color: '#f8fafc', fontSize: 22, fontWeight: 'bold' },
-  email: { color: '#64748b', fontSize: 13, marginTop: 2 },
-  logoutBtn: { backgroundColor: '#1e293b', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  logoutText: { color: '#ef4444', fontWeight: '600', fontSize: 13 },
-  card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  cardLabel: { color: '#64748b', fontSize: 14 },
-  cardAmount: { color: '#38bdf8', fontSize: 46, fontWeight: 'bold', marginTop: 8 },
-  cardSub: { color: '#475569', fontSize: 13, marginTop: 6 },
-  actions: { flexDirection: 'row', gap: 12, marginBottom: 28 },
-  actionPrimary: {
-    flex: 1,
-    backgroundColor: '#38bdf8',
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-  },
-  actionSecondary: {
-    flex: 1,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  actionIcon: { fontSize: 28, marginBottom: 8 },
-  actionTextPrimary: { color: '#0f172a', fontWeight: '700', textAlign: 'center', fontSize: 13 },
-  actionTextSecondary: { color: '#f8fafc', fontWeight: '700', textAlign: 'center', fontSize: 13 },
-  sectionTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '700', marginBottom: 14 },
-  empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { color: '#94a3b8', fontSize: 16, fontWeight: '600' },
-  emptySubText: { color: '#475569', fontSize: 14, marginTop: 4 },
-  expenseItem: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  expenseIcon: { fontSize: 28, marginRight: 12 },
-  expenseInfo: { flex: 1 },
-  expenseName: { color: '#f8fafc', fontSize: 15, fontWeight: '600' },
-  expenseCategory: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  expenseAmount: { color: '#ef4444', fontSize: 16, fontWeight: '700' },
-  viewAll: { alignItems: 'center', paddingVertical: 16 },
-  viewAllText: { color: '#38bdf8', fontSize: 14, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  header: { padding: 20, backgroundColor: '#1E90FF', borderBottomLeftRadius: 15, borderBottomRightRadius: 15, marginBottom: 10 },
+  welcomeText: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  subtitleText: { fontSize: 14, color: '#e0f0ff', marginTop: 4 },
+  listContainer: { padding: 15 },
+  eventCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#ebeeef', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 },
+  eventTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 6 },
+  eventDetails: { fontSize: 13, fontWeight: '600', color: '#1E90FF', marginBottom: 4 },
+  eventLocation: { fontSize: 13, color: '#666', fontWeight: '500', marginBottom: 8 },
+  eventDescription: { fontSize: 14, color: '#777', lineHeight: 20 },
+  emptyText: { textAlign: 'center', marginTop: 40, color: '#999', fontSize: 16 },
+  footerMenu: { flexDirection: 'row', padding: 15, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', justifyContent: 'space-between' },
+  footerButton: { flex: 0.48, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  createButton: { backgroundColor: '#2ecc71' },
+  logoutButton: { backgroundColor: '#e74c3c' },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
 });

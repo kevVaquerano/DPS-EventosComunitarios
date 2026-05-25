@@ -1,144 +1,79 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Platform, Alert, KeyboardAvoidingView, ScrollView,
-} from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../api/firebaseConfig';
+import { auth } from '../api/firebase';
 
 export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const showAlert = (title, message) => {
-    if (Platform.OS === 'web') alert(`${title}: ${message}`);
-    else Alert.alert(title, message);
-  };
 
   const handleRegister = async () => {
-    if (!email.trim() || !password || !confirmPassword) {
-      showAlert('Campos requeridos', 'Por favor completa todos los campos.');
+    if (email === '' || password === '') {
+      Alert.alert('Campos vacíos', 'Por favor, llena todos los campos para continuar.');
       return;
     }
-    if (!email.includes('@')) {
-      showAlert('Correo inválido', 'Ingresa un correo electrónico válido.');
-      return;
-    }
-    if (password.length < 6) {
-      showAlert('Contraseña corta', 'La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      showAlert('Error', 'Las contraseñas no coinciden.');
-      return;
-    }
-
-    setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      // Registrar el usuario en Firebase de forma segura
+      await createUserWithEmailAndPassword(auth, email, password);
+      Alert.alert('¡Registro Exitoso!', 'Tu cuenta comunitaria ha sido creada.');
+      navigation.navigate('Home'); // Redirige a la pantalla principal (Trabajo del Integrante 1)
     } catch (error) {
-      const messages = {
-        'auth/email-already-in-use': 'Este correo ya está registrado.',
-        'auth/invalid-email': 'Correo electrónico inválido.',
-        'auth/weak-password': 'La contraseña es demasiado débil.',
-      };
-      showAlert('Error al registrarse', messages[error.code] || error.message);
-    } finally {
-      setLoading(false);
+      let errorMessage = 'Ocurrió un error al registrar la cuenta.';
+      if (error.code === 'auth/email-already-in-use') errorMessage = 'Este correo ya está registrado.';
+      if (error.code === 'auth/weak-password') errorMessage = 'La contraseña debe tener al menos 6 caracteres.';
+      
+      Alert.alert('Error de Registro', errorMessage);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.emoji}>📝</Text>
-          <Text style={styles.title}>Crear Cuenta</Text>
-          <Text style={styles.subtitle}>Regístrate para comenzar</Text>
-        </View>
+    <View style={styles.container}>
+      <Image 
+        source={require('../../mockups/Eventus.png')} 
+        style={styles.logoImage} 
+      />
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Correo electrónico"
-            placeholderTextColor="#64748b"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña (mín. 6 caracteres)"
-            placeholderTextColor="#64748b"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Confirmar contraseña"
-            placeholderTextColor="#64748b"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
+      <Text style={styles.title}>Crear Cuenta Comunitaria</Text>
+      
+      <TextInput 
+        style={styles.input} 
+        placeholder="Correo electrónico" 
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Contraseña (mínimo 6 caracteres)" 
+        secureTextEntry 
+        value={password}
+        onChangeText={setPassword}
+      />
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.disabled]}
-            onPress={handleRegister}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#0f172a" />
-              : <Text style={styles.buttonText}>Registrarme</Text>
-            }
-          </TouchableOpacity>
-        </View>
+      <TouchableOpacity style={styles.button} onPress={handleRegister}>
+        <Text style={styles.buttonText}>Registrarse</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.linkText}>
-            ¿Ya tienes cuenta? <Text style={styles.link}>Inicia sesión</Text>
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión aquí</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#0f172a' },
-  container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  header: { alignItems: 'center', marginBottom: 40 },
-  emoji: { fontSize: 60, marginBottom: 12 },
-  title: { color: '#f8fafc', fontSize: 28, fontWeight: 'bold' },
-  subtitle: { color: '#64748b', fontSize: 15, marginTop: 6 },
-  form: { gap: 12, marginBottom: 28 },
-  input: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    height: 52,
-    paddingHorizontal: 16,
-    color: '#f8fafc',
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
+  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#333' },
+  input: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
+  button: { backgroundColor: '#1E90FF', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  linkText: { color: '#1E90FF', marginTop: 15, textAlign: 'center' },
+  logoImage: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+    marginBottom: 20,
+    resizeMode: 'contain'
   },
-  button: {
-    backgroundColor: '#38bdf8',
-    borderRadius: 12,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  disabled: { opacity: 0.5 },
-  buttonText: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
-  linkText: { color: '#64748b', textAlign: 'center', fontSize: 14 },
-  link: { color: '#38bdf8', fontWeight: '600' },
 });
