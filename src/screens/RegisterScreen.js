@@ -4,11 +4,12 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../api/firebase';
 
 export default function RegisterScreen({ navigation }) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleRegister = async () => {
-    if (email === '' || password === '') {
+    if (email === '' || password === '' || name === '') {
       Alert.alert('Campos vacíos', 'Por favor, llena todos los campos para continuar.');
       return;
     }
@@ -37,6 +38,13 @@ export default function RegisterScreen({ navigation }) {
       
       <TextInput 
         style={styles.input} 
+        placeholder="Nombre completo" 
+        value={name}
+        onChangeText={setName}
+      />
+
+      <TextInput 
+        style={styles.input} 
         placeholder="Correo electrónico" 
         value={email}
         onChangeText={setEmail}
@@ -63,15 +71,15 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#333' },
+  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#f9f9f9' },
+  title: { fontSize: 26, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#000' },
   input: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
   button: { backgroundColor: '#1E90FF', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  linkText: { color: '#1E90FF', marginTop: 15, textAlign: 'center' },
+  linkText: { color: '#1E90FF', marginTop: 20, textAlign: 'center', fontWeight: '600' },
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
     alignSelf: 'center',
     marginBottom: 20,
     resizeMode: 'contain'
