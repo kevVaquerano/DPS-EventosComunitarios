@@ -1,8 +1,14 @@
 {
-  "plugins": [
-    "expo-web-browser"
-  ],
-  "android": {
-    "package": "com.anonymous.dpscontroldegastos"
+  "expo": {
+    "name": "dps-eventos-comunitarios",
+    "slug": "dps-eventos-comunitarios",
+    "version": "1.0.0",
+    "platforms": ["ios", "android", "web"],
+    "android": {
+      "package": "com.anonymous.eventoscomunitarios"
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

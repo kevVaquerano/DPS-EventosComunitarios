@@ -38,7 +38,6 @@ export default function HomeScreen({ navigation }) {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      navigation.replace('Login');
     } catch (error) {
       Alert.alert('Error', 'No se pudo cerrar la sesión.');
     }

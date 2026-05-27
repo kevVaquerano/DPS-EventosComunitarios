@@ -10,6 +10,7 @@ export default function RegisterScreen({ navigation }) {
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
+  const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -19,16 +20,18 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
     try {
+      setLoading(true);
       // Registrar el usuario en Firebase de forma segura
       await createUserWithEmailAndPassword(auth, email, password);
       Alert.alert('¡Registro Exitoso!', 'Tu cuenta comunitaria ha sido creada.');
-      navigation.navigate('Home'); // Redirige a la pantalla principal (Trabajo del Integrante 1)
     } catch (error) {
       let errorMessage = 'Ocurrió un error al registrar la cuenta.';
       if (error.code === 'auth/email-already-in-use') errorMessage = 'Este correo ya está registrado.';
       if (error.code === 'auth/weak-password') errorMessage = 'La contraseña debe tener al menos 6 caracteres.';
       
       Alert.alert('Error de Registro', errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,8 +67,8 @@ export default function RegisterScreen({ navigation }) {
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Registrarse</Text>
+      <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleRegister} disabled={loading}>
+        <Text style={styles.buttonText}>{loading ? 'Creando cuenta...' : 'Registrarse'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>

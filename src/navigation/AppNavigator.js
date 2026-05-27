@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../api/firebase';
 
-
+import 'react-native-gesture-handler';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -25,25 +27,46 @@ const ScreenPlaceholder = ({ name }) => (
 const Stack = createStackNavigator();
 
 export default function AppNavigator() {
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState(null);
+
+  // Escuchar cambios en el estado de autenticación
+  useEffect(() => {
+    const subscriber = onAuthStateChanged(auth, (userState) => {
+      setUser(userState);
+      if (initializing) setInitializing(false);
+    });
+    return subscriber; // desuscribirse al desmontar
+  }, []);
+
+  if (initializing) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#1E90FF" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName="Login"
-        screenOptions={{
-          headerStyle: { backgroundColor: '#1E90FF' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' },
-        }}
-      >
-        {/* Tus pantallas de Autenticación */}
-        <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Iniciar Sesión' }} />
-        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Registrarse' }} />
-        
-        {/* Pantallas de tus compañeros */}
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Eventos Comunitarios', headerLeft: null }} />
-        <Stack.Screen name="CreateEvent" component={CreateEventScreen || (() => <ScreenPlaceholder name="Crear Evento" />)} options={{ title: 'Crear Evento' }} />
-        <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Detalle del Evento' }} />
-        <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Estadísticas del Proyecto' }} />
+      <Stack.Navigator screenOptions={{
+        headerStyle: { backgroundColor: '#1E90FF' },
+        headerTintColor: '#fff',
+        headerTitleStyle: { fontWeight: 'bold' },
+      }}>
+        {user ? (
+          <>
+            <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Eventos Comunitarios' }} />
+            <Stack.Screen name="CreateEvent" component={CreateEventScreen || (() => <ScreenPlaceholder name="Crear Evento" />)} options={{ title: 'Crear Evento' }} />
+            <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Detalle del Evento' }} />
+            <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Estadísticas del Proyecto' }} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Iniciar Sesión', headerShown: false }} />
+            <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Registrarse' }} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

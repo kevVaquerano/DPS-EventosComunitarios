@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../api/firebase';
 
 export default function LoginScreen({ navigation }) {
@@ -14,9 +14,19 @@ export default function LoginScreen({ navigation }) {
     }
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate('Home'); 
+      navigation.replace('Home'); 
     } catch (error) {
       Alert.alert('Error de acceso', 'El correo o la contraseña son incorrectos.');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      // Esto abrirá una ventana emergente para seleccionar la cuenta de Google
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      Alert.alert('Error de Google', 'No se pudo iniciar sesión. Verifica que Google esté habilitado en Firebase Console.');
     }
   };
 
@@ -50,7 +60,7 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.buttonText}>Iniciar Sesión</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.googleButton} onPress={() => Alert.alert('Info', 'Google Login próximamente')}>
+        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
           <Image source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }} style={{ width: 18, height: 18, marginRight: 10 }} />
           <Text style={styles.googleButtonText}>Sign in with Google</Text>
         </TouchableOpacity>
