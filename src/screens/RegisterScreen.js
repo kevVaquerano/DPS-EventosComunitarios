@@ -15,8 +15,8 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleRegister = async () => {
-    if (!email || !password || !name || !lastName || password !== confirmPassword) {
-      Alert.alert('Error', 'Por favor verifica que todos los campos estén llenos y las contraseñas coincidan.');
+    if (!email || !password || !name || password !== confirmPassword) {
+      Alert.alert('Error', 'Por favor verifica que los campos obligatorios estén llenos y las contraseñas coincidan.');
       return;
     }
     try {
@@ -24,6 +24,7 @@ export default function RegisterScreen({ navigation }) {
       // Registrar el usuario en Firebase de forma segura
       await createUserWithEmailAndPassword(auth, email, password);
       Alert.alert('¡Registro Exitoso!', 'Tu cuenta comunitaria ha sido creada.');
+      navigation.replace('Home'); 
     } catch (error) {
       let errorMessage = 'Ocurrió un error al registrar la cuenta.';
       if (error.code === 'auth/email-already-in-use') errorMessage = 'Este correo ya está registrado.';
@@ -65,6 +66,13 @@ export default function RegisterScreen({ navigation }) {
         secureTextEntry 
         value={password}
         onChangeText={setPassword}
+      />
+      <TextInput 
+        style={styles.input} 
+        placeholder="Confirmar contraseña" 
+        secureTextEntry 
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
       />
 
       <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleRegister} disabled={loading}>

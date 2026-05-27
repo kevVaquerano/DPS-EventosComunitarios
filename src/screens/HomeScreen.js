@@ -83,6 +83,13 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity 
+          style={[styles.footerButton, { backgroundColor: '#9B59B6' }]} 
+          onPress={() => navigation.navigate('Stats')}
+        >
+          <Text style={styles.buttonText}>📊 Estadísticas</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={[styles.footerButton, styles.logoutButton]} 
           onPress={handleSignOut}
         >
@@ -106,7 +113,7 @@ const styles = StyleSheet.create({
   eventDescription: { fontSize: 14, color: '#777', lineHeight: 20 },
   emptyText: { textAlign: 'center', marginTop: 40, color: '#999', fontSize: 16 },
   footerMenu: { flexDirection: 'row', padding: 15, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', justifyContent: 'space-between' },
-  footerButton: { flex: 0.48, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  footerButton: { flex: 0.31, padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   createButton: { backgroundColor: '#2ecc71' },
   logoutButton: { backgroundColor: '#e74c3c' },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 }
