@@ -28,41 +28,35 @@ export default function LoginScreen({ navigation }) {
           style={styles.logoImage}
         />
 
-        <Text style={styles.title}>Bienvenido de nuevo</Text>
-        <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+        <Text style={styles.subtitle}>Inicia Sesión:</Text>
         
+        <Text style={styles.label}>Correo:</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="Correo electrónico" 
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
         />
+        <Text style={styles.label}>Contraseña:</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="Contraseña" 
           secureTextEntry 
           value={password}
           onChangeText={setPassword}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#3483FA' }]} onPress={handleLogin}>
           <Text style={styles.buttonText}>Iniciar Sesión</Text>
         </TouchableOpacity>
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>o inicia sesión con</Text>
-          <View style={styles.divider} />
-        </View>
-
-        <TouchableOpacity style={styles.googleButton} onPress={() => Alert.alert('Info', 'Funcionalidad de Google próximamente')}>
-          <Text style={styles.googleButtonText}>G  Continuar con Google</Text>
+        <TouchableOpacity style={styles.googleButton} onPress={() => Alert.alert('Info', 'Google Login próximamente')}>
+          <Image source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }} style={{ width: 18, height: 18, marginRight: 10 }} />
+          <Text style={styles.googleButtonText}>Sign in with Google</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.linkText}>¿No tienes cuenta? Regístrate aquí</Text>
+          <Text style={styles.linkText}>¿No tienes usuario?</Text>
         </TouchableOpacity>
 
       </View>
@@ -71,25 +65,21 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', backgroundColor: '#f9f9f9', padding: 24 },
-  card: { backgroundColor: '#fff', padding: 20, borderRadius: 15, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
+  container: { flex: 1, justifyContent: 'center', backgroundColor: '#fff', padding: 24 },
+  card: { backgroundColor: '#fff', padding: 10 },
   logoImage: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center', // Centra la imagen en la pantalla
-    marginBottom: 20,    // Deja espacio con el título de abajo
-    resizeMode: 'contain' // Mantiene la proporción de la imagen sin deformarla
+    width: 200,
+    height: 80,
+    alignSelf: 'center',
+    marginBottom: 40,
+    resizeMode: 'contain'
   },
-
-  title: { fontSize: 26, fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 32 },
-  input: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
-  button: { backgroundColor: '#1E90FF', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+  label: { fontSize: 16, fontWeight: 'bold', marginBottom: 5, color: '#000' },
+  subtitle: { fontSize: 16, color: '#000', textAlign: 'center', marginBottom: 20, fontWeight: '600' },
+  input: { backgroundColor: '#E0E0E0', padding: 12, borderRadius: 5, marginBottom: 20 },
+  button: { padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 10 },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  linkText: { color: '#1E90FF', marginTop: 15, textAlign: 'center', fontWeight: '600' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  divider: { flex: 1, height: 1, backgroundColor: '#eee' },
-  dividerText: { marginHorizontal: 10, color: '#999', fontSize: 12 },
-  googleButton: { backgroundColor: '#fff', padding: 14, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#ddd', flexDirection: 'row', justifyContent: 'center' },
-  googleButtonText: { color: '#333', fontWeight: '600', fontSize: 15 }
+  linkText: { color: '#000', marginTop: 30, textAlign: 'center', fontWeight: 'bold', fontSize: 16 },
+  googleButton: { backgroundColor: '#fff', padding: 10, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#ddd', flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
+  googleButtonText: { color: '#666', fontWeight: '600', fontSize: 14 }
 });

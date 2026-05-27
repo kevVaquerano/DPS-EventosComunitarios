@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image, ScrollView } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../api/firebase';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [day, setDay] = useState('');
+  const [month, setMonth] = useState('');
+  const [year, setYear] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleRegister = async () => {
-    if (email === '' || password === '' || name === '') {
-      Alert.alert('Campos vacíos', 'Por favor, llena todos los campos para continuar.');
+    if (!email || !password || !name || !lastName || password !== confirmPassword) {
+      Alert.alert('Error', 'Por favor verifica que todos los campos estén llenos y las contraseñas coincidan.');
       return;
     }
     try {
