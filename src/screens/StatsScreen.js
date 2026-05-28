@@ -1,100 +1,144 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, SafeAreaView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  StyleSheet, Text, View, ScrollView, SafeAreaView, ActivityIndicator,
+} from 'react-native';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../api/firebase';
+import { useResponsive } from '../utils/responsive';
+
+const CATEGORY_COLORS = {
+  Comunidad:   '#1E90FF',
+  Deportes:    '#2ECC71',
+  Educación:   '#9B59B6',
+  Cultura:     '#E67E22',
+  Voluntariado:'#E74C3C',
+};
 
 export default function StatsScreen() {
-  // Datos simulados para las estadísticas de la comunidad
-  const totalEvents = 24;
-  const totalAttendees = 348;
-  const activeUsers = 89;
+  const [events, setEvents]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { isMobile, hPad, fs } = useResponsive();
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'events'), (snap) => {
+      setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    });
+  }, []);
+
+  const totalEvents    = events.length;
+  const totalAttendees = events.reduce((s, e) => s + (e.attendees?.length || 0), 0);
+  const uniqueUsers    = new Set(events.flatMap((e) => e.attendees || [])).size;
+
+  const categoryCounts = events.reduce((acc, e) => {
+    const cat = e.category || 'Otro';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+
+  const sortedCats = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({
+      name, count,
+      percent: totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0,
+      color: CATEGORY_COLORS[name] || '#95a5a6',
+    }));
+
+  const statCards = [
+    { emoji: '📅', value: totalEvents,    label: 'Eventos Creados',    color: '#1E90FF' },
+    { emoji: '👥', value: totalAttendees, label: 'Confirmaciones',      color: '#2ECC71' },
+    { emoji: '👤', value: uniqueUsers,    label: 'Usuarios Únicos',     color: '#E67E22' },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.headerTitle}>📊 Estadísticas Comunitarias</Text>
-        <Text style={styles.subtitle}>Resumen de impacto de Eventus</Text>
+    <SafeAreaView style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad, paddingVertical: 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.innerContent}>
+          <Text style={[styles.headerTitle, { fontSize: fs.xl }]}>📊 Estadísticas Comunitarias</Text>
+          <Text style={[styles.subtitle, { fontSize: fs.sm }]}>Resumen de impacto de Eventus</Text>
 
-        {/* Contenedor de Tarjetas Principales */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.card, { borderLeftColor: '#1E90FF' }]}>
-            <Text style={styles.cardEmoji}>📅</Text>
-            <Text style={styles.cardNumber}>{totalEvents}</Text>
-            <Text style={styles.cardLabel}>Eventos Creados</Text>
-          </View>
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color="#1E90FF" />
+              <Text style={[styles.loadingText, { fontSize: fs.sm }]}>Cargando estadísticas...</Text>
+            </View>
+          ) : (
+            <>
+              {/* Cards grid */}
+              <View style={[styles.statsGrid, isMobile && styles.statsGridMobile]}>
+                {statCards.map(({ emoji, value, label, color }) => (
+                  <View key={label} style={[styles.statCard, { borderLeftColor: color }, isMobile && styles.statCardMobile]}>
+                    <Text style={styles.statEmoji}>{emoji}</Text>
+                    <Text style={[styles.statValue, { fontSize: fs.xl }]}>{value}</Text>
+                    <Text style={[styles.statLabel, { fontSize: fs.xs }]}>{label}</Text>
+                  </View>
+                ))}
+              </View>
 
-          <View style={[styles.card, { borderLeftColor: '#2ECC71' }]}>
-            <Text style={styles.cardEmoji}>👥</Text>
-            <Text style={styles.cardNumber}>{totalAttendees}</Text>
-            <Text style={styles.cardLabel}>Asistentes Totales</Text>
-          </View>
+              {/* Categorías */}
+              {sortedCats.length > 0 && (
+                <View style={styles.catSection}>
+                  <Text style={[styles.sectionTitle, { fontSize: fs.md }]}>Categorías más Populares</Text>
+                  {sortedCats.map(({ name, percent, color }) => (
+                    <View key={name} style={styles.progressItem}>
+                      <View style={styles.progressHeader}>
+                        <Text style={[styles.progressLabel, { fontSize: fs.sm }]}>{name}</Text>
+                        <Text style={[styles.progressPct, { fontSize: fs.sm }]}>{percent}%</Text>
+                      </View>
+                      <View style={styles.progressBg}>
+                        <View style={[styles.progressFill, { width: `${percent}%`, backgroundColor: color }]} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {totalEvents === 0 && (
+                <Text style={[styles.emptyText, { fontSize: fs.md }]}>
+                  Aún no hay eventos. ¡Crea el primero!
+                </Text>
+              )}
+            </>
+          )}
         </View>
-
-        {/* Tarjeta de Usuarios Activos */}
-        <View style={styles.longCard}>
-          <View style={styles.longCardHeader}>
-            <Text style={styles.longCardTitle}>👤 Vecinos Activos hoy</Text>
-            <Text style={styles.longCardNumber}>{activeUsers}</Text>
-          </View>
-          <Text style={styles.longCardDesc}>Usuarios interactuando y registrándose en actividades de la comunidad.</Text>
-        </View>
-
-        {/* Sección de Categorías Populares */}
-        <Text style={styles.sectionTitle}>Categorías más Populares</Text>
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>⚽ Deportes y Recreación</Text>
-            <Text style={styles.progressPercent}>45%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '45%', backgroundColor: '#1E90FF' }]} />
-          </View>
-        </View>
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>🎨 Talleres y Cultura</Text>
-            <Text style={styles.progressPercent}>35%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '35%', backgroundColor: '#9B59B6' }]} />
-          </View>
-        </View>
-
-        <View style={styles.progressContainer}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>🧹 Voluntariado / Ecología</Text>
-            <Text style={styles.progressPercent}>20%</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: '20%', backgroundColor: '#2ECC71' }]} />
-          </View>
-        </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scrollContainer: { padding: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#777', marginBottom: 25 },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  card: { backgroundColor: '#fff', width: '47%', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#ebeeef', borderLeftWidth: 5, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
-  cardEmoji: { fontSize: 24, marginBottom: 5 },
-  cardNumber: { fontSize: 26, fontWeight: 'bold', color: '#333' },
-  cardLabel: { fontSize: 13, color: '#666', marginTop: 2 },
-  longCard: { backgroundColor: '#fff', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: '#ebeeef', marginBottom: 25, elevation: 2 },
-  longCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  longCardTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  longCardNumber: { fontSize: 22, fontWeight: 'bold', color: '#E67E22' },
-  longCardDesc: { fontSize: 13, color: '#777', lineHeight: 18 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-  progressContainer: { marginBottom: 15 },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-  progressLabel: { fontSize: 14, color: '#444', fontWeight: '500' },
-  progressPercent: { fontSize: 14, color: '#777', fontWeight: 'bold' },
-  progressBarBg: { height: 10, backgroundColor: '#ebeeef', borderRadius: 5, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 5 }
+  root: { flex: 1, backgroundColor: '#f5f7fb' },
+  scroll: { flexGrow: 1, alignItems: 'center' },
+  innerContent: { width: '100%', maxWidth: 800 },
+  headerTitle: { fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
+  subtitle: { color: '#64748b', marginBottom: 24 },
+  loadingBox: { alignItems: 'center', paddingTop: 60 },
+  loadingText: { marginTop: 12, color: '#94a3b8' },
+  statsGrid: { flexDirection: 'row', gap: 14, marginBottom: 24, flexWrap: 'wrap' },
+  statsGridMobile: { flexDirection: 'column' },
+  statCard: {
+    flex: 1, minWidth: 140, backgroundColor: '#fff', padding: 16, borderRadius: 14,
+    borderWidth: 1, borderColor: '#e5e7eb', borderLeftWidth: 5,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+  },
+  statCardMobile: { flex: undefined, width: '100%' },
+  statEmoji: { fontSize: 26, marginBottom: 6 },
+  statValue: { fontWeight: 'bold', color: '#0f172a' },
+  statLabel: { color: '#64748b', marginTop: 2 },
+  catSection: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 18,
+    borderWidth: 1, borderColor: '#e5e7eb',
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+  },
+  sectionTitle: { fontWeight: 'bold', color: '#0f172a', marginBottom: 16 },
+  progressItem: { marginBottom: 16 },
+  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  progressLabel: { color: '#475569', fontWeight: '600' },
+  progressPct: { color: '#64748b', fontWeight: 'bold' },
+  progressBg: { height: 10, backgroundColor: '#e2e8f0', borderRadius: 5, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 5 },
+  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 40 },
 });

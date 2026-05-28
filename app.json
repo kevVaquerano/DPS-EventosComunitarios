@@ -5,10 +5,11 @@
     "version": "1.0.0",
     "platforms": ["ios", "android", "web"],
     "android": {
-      "package": "com.anonymous.eventoscomunitarios"
+      "package": "com.anonymous.eventoscomunitarios",
+      "useNextNotificationsApi": true
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-notifications"
     ]
   }
 }

@@ -1,79 +1,224 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, Alert } from 'react-native';
+import {
+  StyleSheet, Text, TextInput, TouchableOpacity,
+  View, ScrollView, Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../api/firebase';
+import { useResponsive } from '../utils/responsive';
 
-export default function CreateEventScreen({ navigation }) {
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [location, setLocation] = useState('');
-  const [description, setDescription] = useState('');
+const CATEGORIES = ['Comunidad', 'Deportes', 'Educación', 'Cultura', 'Voluntariado'];
 
-  const handleCreateEvent = () => {
-    if (!title || !date || !time || !location || !description) {
-      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos para publicar el evento.');
+const MONTHS_ES = [
+  'enero','febrero','marzo','abril','mayo','junio',
+  'julio','agosto','septiembre','octubre','noviembre','diciembre',
+];
+
+function formatDateDisplay(iso) {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  const [year, month, day] = parts;
+  const m = parseInt(month, 10);
+  if (m < 1 || m > 12) return iso;
+  return `${parseInt(day, 10)} de ${MONTHS_ES[m - 1]}, ${year}`;
+}
+
+function parseDateTimestamp(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+
+export default function CreateEventScreen({ navigation, route }) {
+  const editingEvent = route.params?.event || null;
+  const { isMobile, hPad, fs, sp } = useResponsive();
+
+  const [title, setTitle]           = useState(editingEvent?.title || '');
+  const [dateISO, setDateISO]       = useState(editingEvent?.dateISO || '');
+  const [time, setTime]             = useState(editingEvent?.time || '');
+  const [location, setLocation]     = useState(editingEvent?.location || '');
+  const [description, setDescription] = useState(editingEvent?.description || '');
+  const [category, setCategory]     = useState(editingEvent?.category || 'Comunidad');
+  const [loading, setLoading]       = useState(false);
+
+  const validateDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+  const handleSave = async () => {
+    if (!title || !dateISO || !time || !location || !description) {
+      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos.');
+      return;
+    }
+    if (!validateDate(dateISO)) {
+      Alert.alert('Fecha inválida', 'Usa el formato AAAA-MM-DD. Ejemplo: 2026-06-15');
       return;
     }
 
-    // Aquí se integrará más adelante la lógica de Firebase Firestore
-    console.log('Evento a crear:', { title, date, time, location, description });
-    
-    Alert.alert(
-      '¡Éxito!', 
-      'El evento ha sido creado correctamente.',
-      [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
-    );
+    const dateTimestamp = parseDateTimestamp(dateISO);
+    const dateDisplay   = formatDateDisplay(dateISO);
+
+    setLoading(true);
+    try {
+      if (editingEvent) {
+        await updateDoc(doc(db, 'events', editingEvent.id), {
+          title, date: dateDisplay, dateISO, dateTimestamp, time, location, description, category,
+          updatedAt: serverTimestamp(),
+        });
+        Alert.alert('¡Actualizado!', 'El evento fue actualizado correctamente.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        await addDoc(collection(db, 'events'), {
+          title, date: dateDisplay, dateISO, dateTimestamp, time, location, description, category,
+          createdBy: auth.currentUser?.uid || 'anon',
+          attendees: [],
+          createdAt: serverTimestamp(),
+        });
+        Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
+          { text: 'OK', onPress: () => navigation.navigate('Home') },
+        ]);
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.headerTitle}>Nuevo Evento</Text>
-      <Text style={styles.subtitle}>Completa la información para tu comunidad</Text>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad, paddingVertical: sp.lg }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.formCard}>
+          <Text style={[styles.headerTitle, { fontSize: fs.xl }]}>
+            {editingEvent ? 'Editar Evento' : 'Nuevo Evento'}
+          </Text>
+          <Text style={[styles.subtitle, { fontSize: fs.sm }]}>
+            Completa la información para tu comunidad
+          </Text>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Nombre del Evento</Text>
-        <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Ej: Campaña de Limpieza" />
+          <Text style={[styles.label, { fontSize: fs.sm }]}>Nombre del Evento</Text>
+          <TextInput
+            style={[styles.input, { fontSize: fs.md }]}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Ej: Campaña de Limpieza"
+          />
 
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.label}>Fecha</Text>
-            <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="12 Oct, 2024" />
+          <View style={[styles.row, isMobile && styles.rowMobile]}>
+            <View style={[styles.rowItem, !isMobile && { marginRight: 12 }]}>
+              <Text style={[styles.label, { fontSize: fs.sm }]}>Fecha (AAAA-MM-DD)</Text>
+              <TextInput
+                style={[styles.input, { fontSize: fs.md }]}
+                value={dateISO}
+                onChangeText={setDateISO}
+                placeholder="2026-06-15"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            </View>
+            <View style={styles.rowItem}>
+              <Text style={[styles.label, { fontSize: fs.sm }]}>Hora</Text>
+              <TextInput
+                style={[styles.input, { fontSize: fs.md }]}
+                value={time}
+                onChangeText={setTime}
+                placeholder="09:00 AM"
+              />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Hora</Text>
-            <TextInput style={styles.input} value={time} onChangeText={setTime} placeholder="09:00 AM" />
+
+          {dateISO.length === 10 && validateDate(dateISO) && (
+            <Text style={[styles.datePreview, { fontSize: fs.xs }]}>
+              📅 {formatDateDisplay(dateISO)}
+            </Text>
+          )}
+
+          <Text style={[styles.label, { fontSize: fs.sm }]}>Ubicación</Text>
+          <TextInput
+            style={[styles.input, { fontSize: fs.md }]}
+            value={location}
+            onChangeText={setLocation}
+            placeholder="Ej: Parque Central"
+          />
+
+          <Text style={[styles.label, { fontSize: fs.sm }]}>Categoría</Text>
+          <View style={styles.categoryRow}>
+            {CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.chip, category === cat && styles.chipActive]}
+                onPress={() => setCategory(cat)}
+              >
+                <Text style={[styles.chipText, { fontSize: fs.xs }, category === cat && styles.chipTextActive]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
+
+          <Text style={[styles.label, { fontSize: fs.sm }]}>Descripción</Text>
+          <TextInput
+            style={[styles.input, styles.textArea, { fontSize: fs.md }]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="¿De qué trata el evento?"
+            multiline
+            numberOfLines={4}
+          />
+
+          <TouchableOpacity
+            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+            onPress={handleSave}
+            disabled={loading}
+          >
+            <Text style={[styles.saveBtnText, { fontSize: fs.md }]}>
+              {loading ? 'Guardando...' : editingEvent ? 'Actualizar Evento' : 'Publicar Evento'}
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <Text style={styles.label}>Ubicación</Text>
-        <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Ej: Parque Central" />
-
-        <Text style={styles.label}>Descripción</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="¿De qué trata el evento?"
-          multiline
-          numberOfLines={4}
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleCreateEvent}>
-          <Text style={styles.buttonText}>Publicar Evento</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f8f9fa', flexGrow: 1 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#333' },
-  subtitle: { fontSize: 14, color: '#666', marginBottom: 25 },
-  form: { backgroundColor: '#fff', padding: 20, borderRadius: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-  label: { fontSize: 14, fontWeight: '600', color: '#444', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, marginBottom: 20, fontSize: 16, backgroundColor: '#fcfcfc' },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
+  root: { flex: 1, backgroundColor: '#f5f7fb' },
+  scroll: { flexGrow: 1, alignItems: 'center' },
+  formCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 640,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  headerTitle: { fontWeight: 'bold', color: '#0f172a' },
+  subtitle: { color: '#64748b', marginBottom: 24, marginTop: 4 },
+  label: { fontWeight: '600', color: '#444', marginBottom: 8 },
+  input: {
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
+    padding: 12, marginBottom: 18, backgroundColor: '#fcfcfc', color: '#0f172a',
+  },
+  row: { flexDirection: 'row' },
+  rowMobile: { flexDirection: 'column' },
+  rowItem: { flex: 1 },
+  datePreview: { color: '#2E8B57', fontWeight: '600', marginBottom: 14, marginTop: -10 },
   textArea: { height: 100, textAlignVertical: 'top' },
-  button: { backgroundColor: '#2ecc71', padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+  chip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f8f9fa' },
+  chipActive: { backgroundColor: '#2ecc71', borderColor: '#2ecc71' },
+  chipText: { color: '#555' },
+  chipTextActive: { color: '#fff', fontWeight: '700' },
+  saveBtn: { backgroundColor: '#2ecc71', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  saveBtnDisabled: { backgroundColor: '#a0d8b3' },
+  saveBtnText: { color: '#fff', fontWeight: 'bold' },
 });
