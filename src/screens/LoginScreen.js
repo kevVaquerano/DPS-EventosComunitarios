@@ -1,95 +1,273 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, Image } from 'react-native';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Alert,
+  Image,
+  ScrollView,
+  useWindowDimensions,
+  Platform,
+} from 'react-native';
+
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from 'firebase/auth';
 import { auth } from '../api/firebase';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const { height } = useWindowDimensions();
+
+  const showMessage = (title, message) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleLogin = async () => {
-    if (email === '' || password === '') {
-      Alert.alert('Campos vacíos', 'Por favor ingresa tu correo y contraseña.');
+    if (!email.trim() || !password.trim()) {
+      showMessage(
+        'Campos incompletos',
+        'Por favor completa el correo y contraseña.'
+      );
       return;
     }
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.replace('Home'); 
+      navigation.navigate('Home');
     } catch (error) {
-      Alert.alert('Error de acceso', 'El correo o la contraseña son incorrectos.');
+      showMessage(
+        'Error de acceso',
+        'El correo o contraseña son incorrectos.'
+      );
     }
   };
 
   const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      // Esto abrirá una ventana emergente para seleccionar la cuenta de Google
+      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+
+      showMessage('¡Inicio exitoso!', 'Ingresaste con Google correctamente.');
+      navigation.navigate('Home');
     } catch (error) {
-      Alert.alert('Error de Google', 'No se pudo iniciar sesión. Verifica que Google esté habilitado en Firebase Console.');
+      showMessage('Error con Google', 'No se pudo iniciar sesión con Google.');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Image 
-          source={require('../../mockups/Eventus.png')}
-          style={styles.logoImage}
-        />
+    <View style={[styles.container, { height: height - 75 }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
+          <Image
+            source={require('../images/EventusLogo.png')}
+            style={styles.logoImage}
+          />
 
-        <Text style={styles.subtitle}>Inicia Sesión:</Text>
-        
-        <Text style={styles.label}>Correo:</Text>
-        <TextInput 
-          style={styles.input} 
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <Text style={styles.label}>Contraseña:</Text>
-        <TextInput 
-          style={styles.input} 
-          secureTextEntry 
-          value={password}
-          onChangeText={setPassword}
-        />
+          <Text style={styles.title}>Iniciar Sesión</Text>
 
-        <TouchableOpacity style={[styles.button, { backgroundColor: '#3483FA' }]} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Iniciar Sesión</Text>
-        </TouchableOpacity>
+          <View style={styles.formContent}>
+            <TextInput
+              style={styles.input}
+              placeholder="Correo electrónico"
+              placeholderTextColor="#64748B"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
 
-        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-          <Image source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }} style={{ width: 18, height: 18, marginRight: 10 }} />
-          <Text style={styles.googleButtonText}>Sign in with Google</Text>
-        </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña"
+              placeholderTextColor="#64748B"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
 
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.linkText}>¿No tienes usuario?</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleLogin}>
+              <Text style={styles.buttonText}>Iniciar Sesión</Text>
+            </TouchableOpacity>
 
-      </View>
+            <View style={styles.separatorContainer}>
+              <View style={styles.line} />
+              <Text style={styles.separatorText}>
+                o inicia sesión con
+              </Text>
+              <View style={styles.line} />
+            </View>
+
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleLogin}
+            >
+              <Image
+                source={require('../images/GoogleIcon.png')}
+                style={styles.googleIcon}
+              />
+
+              <Text style={styles.googleButtonText}>
+                Continuar con Google
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Register')}
+            >
+              <Text style={styles.linkText}>
+                ¿No tienes cuenta? Regístrate aquí
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', backgroundColor: '#fff', padding: 24 },
-  card: { backgroundColor: '#fff', padding: 10 },
-  logoImage: {
-    width: 200,
-    height: 80,
-    alignSelf: 'center',
-    marginBottom: 40,
-    resizeMode: 'contain'
+  container: {
+    backgroundColor: '#F4F9F4',
   },
-  label: { fontSize: 16, fontWeight: 'bold', marginBottom: 5, color: '#000' },
-  subtitle: { fontSize: 16, color: '#000', textAlign: 'center', marginBottom: 20, fontWeight: '600' },
-  input: { backgroundColor: '#E0E0E0', padding: 12, borderRadius: 5, marginBottom: 20 },
-  button: { padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  linkText: { color: '#000', marginTop: 30, textAlign: 'center', fontWeight: 'bold', fontSize: 16 },
-  googleButton: { backgroundColor: '#fff', padding: 10, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#ddd', flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  googleButtonText: { color: '#666', fontWeight: '600', fontSize: 14 }
+
+  formContent: {
+    width: '100%',
+    maxWidth: 1050,
+    alignSelf: 'center',
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 5,
+    justifyContent: 'center',
+    flexGrow: 1,
+  },
+
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  logoImage: {
+    width: 160,
+    height: 90,
+    alignSelf: 'center',
+    marginBottom: 14,
+    resizeMode: 'contain',
+  },
+
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#1E293B',
+    marginBottom: 22,
+  },
+
+  input: {
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#DCE5DD',
+    fontSize: 15,
+    color: '#1E293B',
+  },
+
+  button: {
+    backgroundColor: '#3AA773',
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+
+  linkText: {
+    color: '#2E8B57',
+    marginTop: 20,
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+
+  separatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 18,
+  },
+
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#DCE5DD',
+  },
+
+  separatorText: {
+    marginHorizontal: 10,
+    color: '#64748B',
+    fontSize: 14,
+  },
+
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DCE5DD',
+    borderRadius: 14,
+    padding: 15,
+  },
+
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+    resizeMode: 'contain',
+  },
+
+  googleButtonText: {
+    color: '#1E293B',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });
