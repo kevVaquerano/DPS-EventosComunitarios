@@ -20,6 +20,7 @@ export default function StatsScreen() {
   const { isMobile, hPad, fs } = useResponsive();
 
   useEffect(() => {
+    // Se escucha toda la colección para que las estadísticas se actualicen automáticamente
     return onSnapshot(collection(db, 'events'), (snap) => {
       setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
@@ -27,7 +28,9 @@ export default function StatsScreen() {
   }, []);
 
   const totalEvents    = events.length;
+  // Se suma la longitud del array attendees de cada evento para el total de confirmaciones
   const totalAttendees = events.reduce((s, e) => s + (e.attendees?.length || 0), 0);
+  // Set elimina duplicados: un usuario que asistió a varios eventos se cuenta una sola vez
   const uniqueUsers    = new Set(events.flatMap((e) => e.attendees || [])).size;
 
   const categoryCounts = events.reduce((acc, e) => {
@@ -36,6 +39,7 @@ export default function StatsScreen() {
     return acc;
   }, {});
 
+  // Se ordena de mayor a menor para que las barras de progreso queden en orden descendente
   const sortedCats = Object.entries(categoryCounts)
     .sort((a, b) => b[1] - a[1])
     .map(([name, count]) => ({
@@ -67,7 +71,7 @@ export default function StatsScreen() {
             </View>
           ) : (
             <>
-              {/* Cards grid */}
+              {/* En mobile las cards se apilan; en tablet/desktop van en fila */}
               <View style={[styles.statsGrid, isMobile && styles.statsGridMobile]}>
                 {statCards.map(({ emoji, value, label, color }) => (
                   <View key={label} style={[styles.statCard, { borderLeftColor: color }, isMobile && styles.statCardMobile]}>
@@ -78,7 +82,6 @@ export default function StatsScreen() {
                 ))}
               </View>
 
-              {/* Categorías */}
               {sortedCats.length > 0 && (
                 <View style={styles.catSection}>
                   <Text style={[styles.sectionTitle, { fontSize: fs.md }]}>Categorías más Populares</Text>

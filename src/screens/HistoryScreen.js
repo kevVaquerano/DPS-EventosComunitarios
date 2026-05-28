@@ -17,12 +17,14 @@ export default function HistoryScreen({ navigation }) {
 
   useEffect(() => {
     if (!currentUser) { setLoading(false); return; }
+    // array-contains permite filtrar directamente en Firestore sin traer todos los eventos
     const q = query(
       collection(db, 'events'),
       where('attendees', 'array-contains', currentUser.uid)
     );
     return onSnapshot(q, (snap) => {
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Se ordena en cliente porque Firestore no permite orderBy junto con array-contains sin índice compuesto
       data.sort((a, b) => (b.dateTimestamp || 0) - (a.dateTimestamp || 0));
       setEvents(data);
       setLoading(false);
@@ -42,6 +44,7 @@ export default function HistoryScreen({ navigation }) {
         onPress={() => navigation.navigate('EventDetail', { event: item })}
         activeOpacity={0.85}
       >
+        {/* Barra de color lateral: verde para próximos, gris para pasados */}
         <View style={[styles.cardAccent, isPast ? styles.accentPast : styles.accentUpcoming]} />
         <View style={styles.cardBody}>
           <View style={styles.cardTopRow}>

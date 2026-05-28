@@ -18,6 +18,7 @@ export default function AppNavigator() {
       <Stack.Navigator
         initialRouteName="Login"
         screenOptions={{
+          // Sombra desactivada para que el header se integre con el fondo de las pantallas
           headerStyle: { backgroundColor: '#2563eb', elevation: 0, shadowOpacity: 0 },
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: 'bold' },
@@ -26,10 +27,15 @@ export default function AppNavigator() {
       >
         <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Iniciar Sesión' }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Registrarse' }} />
+
+        {/* Home tiene su propio header personalizado con búsqueda y acciones */}
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+
+        {/* El título cambia según si se está creando o editando un evento */}
         <Stack.Screen name="CreateEvent" component={CreateEventScreen} options={({ route }) => ({
           title: route.params?.event ? 'Editar Evento' : 'Nuevo Evento',
         })} />
+
         <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Detalle del Evento' }} />
         <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Estadísticas' }} />
         <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Mi Historial' }} />

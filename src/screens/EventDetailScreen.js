@@ -11,6 +11,7 @@ import * as Notifications from 'expo-notifications';
 import { db, auth } from '../api/firebase';
 import { useResponsive } from '../utils/responsive';
 
+// setNotificationHandler no existe en web; se limita a plataformas nativas
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true }),
@@ -22,6 +23,7 @@ async function scheduleEventNotification(event) {
   try {
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') return;
+    // Si el evento es en más de un día, notifica 24h antes; si no, notifica en 5s (demo)
     let seconds = 5;
     if (event.dateTimestamp) {
       const msUntil = event.dateTimestamp - Date.now();
@@ -35,7 +37,7 @@ async function scheduleEventNotification(event) {
       },
       trigger: { seconds },
     });
-  } catch { /* silently fail */ }
+  } catch { /* falla silenciosamente para no interrumpir el flujo del usuario */ }
 }
 
 export default function EventDetailScreen({ route, navigation }) {
@@ -44,11 +46,11 @@ export default function EventDetailScreen({ route, navigation }) {
   };
   const { isMobile, hPad, fs } = useResponsive();
 
-  const [rating, setRating]               = useState(0);
-  const [comment, setComment]             = useState('');
-  const [commentsList, setCommentsList]   = useState([]);
-  const [attendees, setAttendees]         = useState(event.attendees || []);
-  const [submitting, setSubmitting]       = useState(false);
+  const [rating, setRating]             = useState(0);
+  const [comment, setComment]           = useState('');
+  const [commentsList, setCommentsList] = useState([]);
+  const [attendees, setAttendees]       = useState(event.attendees || []);
+  const [submitting, setSubmitting]     = useState(false);
 
   const currentUser = auth.currentUser;
   const isAttending = currentUser && attendees.includes(currentUser.uid);
@@ -56,6 +58,7 @@ export default function EventDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     if (!event.id) return;
+    // Los comentarios se guardan en subcolección para no cargar el documento del evento completo
     const q = query(collection(db, 'events', event.id, 'comments'), orderBy('createdAt', 'asc'));
     return onSnapshot(q, (snap) => {
       setCommentsList(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -64,6 +67,7 @@ export default function EventDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     if (!event.id) return;
+    // Se escucha el documento en tiempo real para reflejar cambios de asistencia de otros usuarios
     return onSnapshot(eventRef, (snap) => {
       if (snap.exists()) setAttendees(snap.data().attendees || []);
     });
@@ -76,7 +80,7 @@ export default function EventDetailScreen({ route, navigation }) {
     try {
       await addDoc(collection(db, 'events', event.id, 'comments'), {
         user: currentUser.displayName || currentUser.email || 'Usuario',
-        userId: currentUser.uid,
+        userId: currentUser.uid, // se guarda para poder verificar autoría al mostrar el botón de eliminar
         text: comment.trim(),
         rating,
         createdAt: serverTimestamp(),
@@ -104,6 +108,7 @@ export default function EventDetailScreen({ route, navigation }) {
     if (!currentUser) { Alert.alert('Inicia sesión', 'Debes iniciar sesión para confirmar asistencia.'); return; }
     try {
       if (isAttending) {
+        // arrayRemove es atómico en Firestore, evita condiciones de carrera en escrituras concurrentes
         await updateDoc(eventRef, { attendees: arrayRemove(currentUser.uid) });
         Alert.alert('Cancelado', 'Has cancelado tu asistencia.');
       } else {
@@ -123,6 +128,7 @@ export default function EventDetailScreen({ route, navigation }) {
     const message = `🎉 ${event.title}\n📅 ${event.date} — ⏰ ${event.time}\n📍 ${event.location}\n\n${event.description}`;
     try {
       if (Platform.OS === 'web') {
+        // navigator.share requiere HTTPS; en desarrollo se usa el portapapeles como alternativa
         if (navigator.share) await navigator.share({ title: event.title, text: message });
         else {
           await navigator.clipboard.writeText(message);
@@ -131,7 +137,7 @@ export default function EventDetailScreen({ route, navigation }) {
       } else {
         await Share.share({ message });
       }
-    } catch { /* user cancelled */ }
+    } catch { /* el usuario canceló el diálogo de compartir */ }
   };
 
   return (
@@ -139,7 +145,6 @@ export default function EventDetailScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad, paddingVertical: 20 }]}>
         <View style={styles.innerContent}>
 
-          {/* Tarjeta principal */}
           <View style={styles.card}>
             <Text style={[styles.title, { fontSize: fs.lg }]}>{event.title}</Text>
             {[
@@ -158,7 +163,6 @@ export default function EventDetailScreen({ route, navigation }) {
             <Text style={[styles.descText, { fontSize: fs.sm }]}>{event.description}</Text>
           </View>
 
-          {/* RSVP */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { fontSize: fs.md }]}>Confirmación de Asistencia</Text>
             <TouchableOpacity
@@ -176,7 +180,6 @@ export default function EventDetailScreen({ route, navigation }) {
             )}
           </View>
 
-          {/* Compartir */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { fontSize: fs.md }]}>Compartir Evento</Text>
             <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
@@ -184,7 +187,6 @@ export default function EventDetailScreen({ route, navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* Comentario */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { fontSize: fs.md }]}>Dejar un Comentario</Text>
             <Text style={[styles.ratingLabel, { fontSize: fs.xs }]}>Calificación:</Text>
@@ -214,7 +216,6 @@ export default function EventDetailScreen({ route, navigation }) {
             </View>
           </View>
 
-          {/* Lista de comentarios */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { fontSize: fs.md }]}>Comentarios de la Comunidad</Text>
             {commentsList.length === 0 ? (
@@ -230,6 +231,7 @@ export default function EventDetailScreen({ route, navigation }) {
                         <Text style={styles.commentRating}>{'★'.repeat(item.rating)}</Text>
                       )}
                     </View>
+                    {/* El ícono de eliminar solo aparece para el autor del comentario */}
                     {isOwn && (
                       <TouchableOpacity onPress={() => handleDeleteComment(item.id)}>
                         <Text style={styles.deleteIcon}>🗑️</Text>

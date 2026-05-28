@@ -19,18 +19,20 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleRegister = async () => {
+    // Validaciones en orden para mostrar solo un error a la vez
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!name.trim())                   return showMessage('Nombre requerido', 'Escribe tu nombre completo.');
-    if (!email.trim())                  return showMessage('Correo requerido', 'Escribe tu correo electrónico.');
-    if (!emailRegex.test(email))        return showMessage('Correo inválido', 'Ej: usuario@gmail.com');
-    if (!password.trim())               return showMessage('Contraseña requerida', 'Escribe una contraseña.');
-    if (password.length < 6)            return showMessage('Contraseña corta', 'Mínimo 6 caracteres.');
+    if (!name.trim())            return showMessage('Nombre requerido', 'Escribe tu nombre completo.');
+    if (!email.trim())           return showMessage('Correo requerido', 'Escribe tu correo electrónico.');
+    if (!emailRegex.test(email)) return showMessage('Correo inválido', 'Ej: usuario@gmail.com');
+    if (!password.trim())        return showMessage('Contraseña requerida', 'Escribe una contraseña.');
+    if (password.length < 6)     return showMessage('Contraseña corta', 'Mínimo 6 caracteres.');
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       showMessage('¡Registro Exitoso!', 'Tu cuenta comunitaria ha sido creada.');
       navigation.navigate('Home');
     } catch (error) {
+      // Firebase devuelve códigos específicos que traducimos para el usuario
       const msgs = {
         'auth/email-already-in-use': 'Este correo ya está registrado.',
         'auth/invalid-email':        'El correo electrónico no es válido.',

@@ -12,6 +12,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const { isMobile, isDesktop, hPad, fs, sp } = useResponsive();
 
+  // En web no existe Alert nativo, window.alert es el equivalente más simple
   const showMessage = (title, msg) => {
     if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
     else Alert.alert(title, msg);
@@ -30,6 +31,7 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  // signInWithPopup solo funciona en web; en móvil se usaría signInWithRedirect
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -41,6 +43,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
+    // KeyboardAvoidingView evita que el teclado tape los campos en iOS
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}

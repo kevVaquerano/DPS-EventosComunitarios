@@ -14,6 +14,7 @@ const MONTHS_ES = [
   'julio','agosto','septiembre','octubre','noviembre','diciembre',
 ];
 
+// Convierte "2026-06-15" a "15 de junio, 2026" para mostrarlo al usuario
 function formatDateDisplay(iso) {
   const parts = iso.split('-');
   if (parts.length !== 3) return iso;
@@ -23,22 +24,24 @@ function formatDateDisplay(iso) {
   return `${parseInt(day, 10)} de ${MONTHS_ES[m - 1]}, ${year}`;
 }
 
+// Se guarda como timestamp Unix (ms) para poder ordenar y filtrar en Firestore
 function parseDateTimestamp(iso) {
   const d = new Date(iso + 'T00:00:00');
   return isNaN(d.getTime()) ? null : d.getTime();
 }
 
 export default function CreateEventScreen({ navigation, route }) {
+  // Si se pasa un evento por params, es modo edición
   const editingEvent = route.params?.event || null;
   const { isMobile, hPad, fs, sp } = useResponsive();
 
-  const [title, setTitle]           = useState(editingEvent?.title || '');
-  const [dateISO, setDateISO]       = useState(editingEvent?.dateISO || '');
-  const [time, setTime]             = useState(editingEvent?.time || '');
-  const [location, setLocation]     = useState(editingEvent?.location || '');
+  const [title, setTitle]             = useState(editingEvent?.title || '');
+  const [dateISO, setDateISO]         = useState(editingEvent?.dateISO || '');
+  const [time, setTime]               = useState(editingEvent?.time || '');
+  const [location, setLocation]       = useState(editingEvent?.location || '');
   const [description, setDescription] = useState(editingEvent?.description || '');
-  const [category, setCategory]     = useState(editingEvent?.category || 'Comunidad');
-  const [loading, setLoading]       = useState(false);
+  const [category, setCategory]       = useState(editingEvent?.category || 'Comunidad');
+  const [loading, setLoading]         = useState(false);
 
   const validateDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v);
 
@@ -58,12 +61,13 @@ export default function CreateEventScreen({ navigation, route }) {
     setLoading(true);
     try {
       if (editingEvent) {
+        // En edición se actualiza solo los campos editables; createdBy y attendees se mantienen
         await updateDoc(doc(db, 'events', editingEvent.id), {
           title, date: dateDisplay, dateISO, dateTimestamp, time, location, description, category,
           updatedAt: serverTimestamp(),
         });
         Alert.alert('¡Actualizado!', 'El evento fue actualizado correctamente.', [
-          { text: 'OK', onPress: () => navigation.goBack() },
+          { text: 'Aceptar', onPress: () => navigation.goBack() },
         ]);
       } else {
         await addDoc(collection(db, 'events'), {
@@ -73,7 +77,7 @@ export default function CreateEventScreen({ navigation, route }) {
           createdAt: serverTimestamp(),
         });
         Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
-          { text: 'OK', onPress: () => navigation.navigate('Home') },
+          { text: 'Aceptar', onPress: () => navigation.navigate('Home') },
         ]);
       }
     } catch {
@@ -109,6 +113,7 @@ export default function CreateEventScreen({ navigation, route }) {
             placeholder="Ej: Campaña de Limpieza"
           />
 
+          {/* En mobile los campos de fecha y hora se apilan para no quedar muy angostos */}
           <View style={[styles.row, isMobile && styles.rowMobile]}>
             <View style={[styles.rowItem, !isMobile && { marginRight: 12 }]}>
               <Text style={[styles.label, { fontSize: fs.sm }]}>Fecha (AAAA-MM-DD)</Text>
@@ -132,6 +137,7 @@ export default function CreateEventScreen({ navigation, route }) {
             </View>
           </View>
 
+          {/* Vista previa de la fecha en formato legible mientras el usuario escribe */}
           {dateISO.length === 10 && validateDate(dateISO) && (
             <Text style={[styles.datePreview, { fontSize: fs.xs }]}>
               📅 {formatDateDisplay(dateISO)}

@@ -23,6 +23,7 @@ export default function HomeScreen({ navigation }) {
   const now = Date.now();
 
   useEffect(() => {
+    // onSnapshot mantiene los eventos sincronizados en tiempo real sin necesidad de recargar
     const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snap) => {
       setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -47,6 +48,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const filteredEvents = useMemo(() => {
+    // Se separan primero por fecha y luego por búsqueda/categoría para evitar recálculos innecesarios
     const byTab = events.filter((e) => {
       if (!e.dateTimestamp) return activeTab === 'upcoming';
       return activeTab === 'upcoming' ? e.dateTimestamp >= now : e.dateTimestamp < now;
@@ -58,6 +60,7 @@ export default function HomeScreen({ navigation }) {
   }, [events, search, filter, activeTab]);
 
   const renderEventItem = ({ item }) => {
+    // Solo el creador del evento puede ver las opciones de edición y eliminación
     const isOwner      = currentUser && item.createdBy === currentUser.uid;
     const attendeeCount = item.attendees?.length || 0;
     return (
@@ -103,7 +106,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.root}>
-      {/* ── Header ── */}
       <View style={[styles.header, { paddingHorizontal: hPad }]}>
         <View style={styles.headerLeft}>
           <Text style={[styles.logoText, { fontSize: isMobile ? 20 : 24 }]}>Eventus</Text>
@@ -129,9 +131,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      {/* ── Content wrapper ── */}
       <View style={[styles.content, { paddingHorizontal: hPad }]}>
-        {/* Tabs */}
         <View style={styles.tabsRow}>
           {['upcoming', 'past'].map((tab) => (
             <TouchableOpacity
@@ -146,7 +146,6 @@ export default function HomeScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Search + filter */}
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
             <TextInput
@@ -179,13 +178,13 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* List */}
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#2563eb" />
             <Text style={[styles.loadingText, { fontSize: fs.sm }]}>Cargando eventos...</Text>
           </View>
         ) : (
+          // key={columns} fuerza a FlatList a recrearse cuando cambia el número de columnas
           <FlatList
             key={columns}
             data={filteredEvents}
@@ -203,7 +202,7 @@ export default function HomeScreen({ navigation }) {
         )}
       </View>
 
-      {/* FAB solo en mobile */}
+      {/* FAB solo en mobile porque en desktop ya hay botón en el header */}
       {isMobile && (
         <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateEvent')}>
           <Text style={styles.fabText}>＋</Text>

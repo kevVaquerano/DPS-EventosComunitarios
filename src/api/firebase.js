@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// Credenciales del proyecto en Firebase Console
 const firebaseConfig = {
   apiKey: "AIzaSyDXZs8jEyshb8GN744miXAVUaOuPQnJujE",
   authDomain: "dps-eventos.firebaseapp.com",
@@ -13,5 +14,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Se exportan por separado para no importar app completa en cada pantalla
 export const auth = getAuth(app);
 export const db = getFirestore(app);
