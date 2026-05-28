@@ -3,11 +3,13 @@ import {
   StyleSheet,
   Text,
   View,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
   TextInput,
   useWindowDimensions,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../api/firebase';
@@ -53,8 +55,17 @@ export default function HomeScreen({ navigation }) {
   const [filter, setFilter] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
 
+  const currentUser = auth.currentUser;
+
+  const userName =
+    currentUser?.displayName ||
+    currentUser?.email?.split('@')[0] ||
+    'Usuario';
+
   const { width } = useWindowDimensions();
-  const columns = width >= 900 ? 3 : width >= 650 ? 2 : 1;
+
+  const isMobile = width < 650;
+  const columns = width >= 1000 ? 3 : width >= 700 ? 2 : 1;
 
   const handleSignOut = async () => {
     try {
@@ -79,112 +90,125 @@ export default function HomeScreen({ navigation }) {
     });
   }, [events, search, filter]);
 
-  const renderEventItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.eventCard, { flex: 1 / columns }]}
-      onPress={() => navigation.navigate('EventDetail', { event: item })}
-      activeOpacity={0.85}
-    >
-      <View style={styles.cardImage}>
-        <Text style={styles.cardIcon}>🎉</Text>
-      </View>
-
-      <View style={styles.cardContent}>
-        <View style={styles.categoryPill}>
-          <Text style={styles.categoryText}>{item.category}</Text>
-        </View>
-
-        <Text style={styles.eventTitle}>{item.title}</Text>
-
-        <Text style={styles.eventInfo}>📅 {item.date}</Text>
-        <Text style={styles.eventInfo}>⏰ {item.time}</Text>
-        <Text style={styles.eventLocation}>📍 {item.location}</Text>
-
-        <TouchableOpacity
-          style={styles.detailButton}
-          onPress={() => navigation.navigate('EventDetail', { event: item })}
-        >
-          <Text style={styles.detailButtonText}>Ver detalles</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>¡Hola, Comunidad!</Text>
-          <Text style={styles.subtitleText}>Explora los eventos próximos disponibles</Text>
-        </View>
-
-        <Text style={styles.logoText}>Eventus</Text>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Text style={styles.notificationText}>🔔</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
-            <Text style={styles.logoutText}>Cerrar sesión</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.mainCard}>
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <TextInput
-              placeholder="Buscar eventos..."
-              placeholderTextColor="#94a3b8"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.searchInput}
-            />
-            <Text style={styles.searchIcon}>🔍</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          isMobile && styles.scrollContainerMobile,
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.header, isMobile && styles.headerMobile]}>
+          <View style={styles.headerTextBox}>
+            <Text style={styles.welcomeText}>¡Hola, {userName}!</Text>
+            <Text style={styles.subtitleText}>
+              Explora los eventos próximos disponibles
+            </Text>
           </View>
 
-          <View style={styles.filterWrapper}>
-            <TouchableOpacity
-              style={styles.filterButton}
-              onPress={() => setShowFilters(!showFilters)}
-            >
-              <Text style={styles.filterText}>{filter}</Text>
-              <Text style={styles.filterArrow}>⌄</Text>
+          <Text style={styles.logoText}>Eventus</Text>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.notificationButton}>
+              <Text style={styles.notificationText}>🔔</Text>
             </TouchableOpacity>
 
-            {showFilters && (
-              <View style={styles.filterMenu}>
-                {FILTERS.map((option) => (
-                  <TouchableOpacity
-                    key={option}
-                    style={styles.filterOption}
-                    onPress={() => {
-                      setFilter(option);
-                      setShowFilters(false);
-                    }}
-                  >
-                    <Text style={styles.filterOptionText}>{option}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
+              <Text style={styles.logoutText}>Cerrar sesión</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[styles.mainCard, isMobile && styles.mainCardMobile]}>
+          <View style={[styles.searchRow, isMobile && styles.searchRowMobile]}>
+            <View style={[styles.searchBox, isMobile && styles.fullWidth]}>
+              <TextInput
+                placeholder="Buscar eventos..."
+                placeholderTextColor="#94a3b8"
+                value={search}
+                onChangeText={setSearch}
+                style={styles.searchInput}
+              />
+              <Text style={styles.searchIcon}>🔍</Text>
+            </View>
+
+            <View style={[styles.filterWrapper, isMobile && styles.fullWidth]}>
+              <TouchableOpacity
+                style={styles.filterButton}
+                onPress={() => setShowFilters(!showFilters)}
+              >
+                <Text style={styles.filterText}>{filter}</Text>
+                <Text style={styles.filterArrow}>⌄</Text>
+              </TouchableOpacity>
+
+              {showFilters && (
+                <View style={styles.filterMenu}>
+                  {FILTERS.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={styles.filterOption}
+                      onPress={() => {
+                        setFilter(option);
+                        setShowFilters(false);
+                      }}
+                    >
+                      <Text style={styles.filterOptionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.eventsGrid}>
+            {filteredEvents.length > 0 ? (
+              filteredEvents.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.eventCard,
+                    {
+                      width: columns === 1 ? '100%' : `${100 / columns}%`,
+                    },
+                  ]}
+                  onPress={() => navigation.navigate('EventDetail', { event: item })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.eventCardInner}>
+                    <View style={styles.cardImage}>
+                      <Text style={styles.cardIcon}>🎉</Text>
+                    </View>
+
+                    <View style={styles.cardContent}>
+                      <View style={styles.categoryPill}>
+                        <Text style={styles.categoryText}>{item.category}</Text>
+                      </View>
+
+                      <Text style={styles.eventTitle}>{item.title}</Text>
+
+                      <Text style={styles.eventInfo}>📅 {item.date}</Text>
+                      <Text style={styles.eventInfo}>⏰ {item.time}</Text>
+                      <Text style={styles.eventLocation}>📍 {item.location}</Text>
+
+                      <TouchableOpacity
+                        style={styles.detailButton}
+                        onPress={() => navigation.navigate('EventDetail', { event: item })}
+                      >
+                        <Text style={styles.detailButtonText}>Ver detalles</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No hay eventos disponibles.</Text>
             )}
           </View>
         </View>
-
-        <FlatList
-          key={columns}
-          data={filteredEvents}
-          keyExtractor={(item) => item.id}
-          renderItem={renderEventItem}
-          numColumns={columns}
-          columnWrapperStyle={columns > 1 ? styles.columnWrapper : null}
-          contentContainerStyle={styles.listContainer}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No hay eventos disponibles.</Text>
-          }
-        />
-      </View>
+      </ScrollView>
 
       <TouchableOpacity
         style={styles.fab}
@@ -193,14 +217,30 @@ export default function HomeScreen({ navigation }) {
       >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: Platform.OS === 'web' ? '100vh' : '100%',
     backgroundColor: '#f5f7fb',
+  },
+
+  scrollView: {
+    flex: 1,
+    maxHeight: Platform.OS === 'web' ? '100vh' : undefined,
+    overflow: Platform.OS === 'web' ? 'scroll' : 'visible',
+  },
+
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+
+  scrollContainerMobile: {
+    paddingBottom: 60,
   },
 
   header: {
@@ -212,11 +252,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
-    zIndex: 10,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  headerMobile: {
+    alignItems: 'flex-start',
+  },
+
+  headerTextBox: {
+    flexShrink: 1,
   },
 
   welcomeText: {
@@ -241,6 +286,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexWrap: 'wrap',
   },
 
   notificationButton: {
@@ -272,7 +318,6 @@ const styles = StyleSheet.create({
   },
 
   mainCard: {
-    flex: 1,
     margin: 24,
     padding: 22,
     backgroundColor: '#ffffff',
@@ -283,17 +328,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 14,
     elevation: 3,
+    minHeight: 480,
+  },
+
+  mainCardMobile: {
+    margin: 14,
+    padding: 16,
+    borderRadius: 22,
   },
 
   searchRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 14,
     marginBottom: 22,
     zIndex: 20,
   },
 
+  searchRowMobile: {
+    flexDirection: 'column',
+  },
+
   searchBox: {
     flex: 1,
+    minWidth: 250,
     height: 48,
     borderRadius: 14,
     borderWidth: 1,
@@ -302,6 +360,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
+  },
+
+  fullWidth: {
+    width: '100%',
+    minWidth: '100%',
   },
 
   searchInput: {
@@ -316,8 +379,10 @@ const styles = StyleSheet.create({
   },
 
   filterWrapper: {
-    width: 170,
+    minWidth: 170,
+    flexGrow: 1,
     position: 'relative',
+    zIndex: 50,
   },
 
   filterButton: {
@@ -368,19 +433,21 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
 
-  listContainer: {
-    paddingBottom: 90,
-  },
-
-  columnWrapper: {
-    gap: 18,
+  eventsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -8,
   },
 
   eventCard: {
+    paddingHorizontal: 8,
+    marginBottom: 18,
+  },
+
+  eventCardInner: {
     backgroundColor: '#ffffff',
     borderRadius: 22,
     overflow: 'hidden',
-    marginBottom: 18,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     shadowColor: '#000',
@@ -390,7 +457,7 @@ const styles = StyleSheet.create({
   },
 
   cardImage: {
-    height: 130,
+    height: 120,
     backgroundColor: '#dbeafe',
     alignItems: 'center',
     justifyContent: 'center',
@@ -452,6 +519,7 @@ const styles = StyleSheet.create({
   },
 
   emptyText: {
+    width: '100%',
     textAlign: 'center',
     marginTop: 40,
     color: '#94a3b8',
