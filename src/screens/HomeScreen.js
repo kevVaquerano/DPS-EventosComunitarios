@@ -374,7 +374,7 @@ export default function HomeScreen({ navigation }) {
                           </Text>
                         </View>
                         <View style={styles.categoryPill}>
-                          <Text style={styles.categoryText}>{item.category}</Text>
+                          <Text style={styles.categoryText}>{CATEGORY_EMOJIS[item.category] || '🏷'} {item.category}</Text>
                         </View>
                       </View>
 
