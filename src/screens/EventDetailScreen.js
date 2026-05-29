@@ -153,6 +153,10 @@ export default function EventDetailScreen({ route, navigation }) {
       >
         <View style={styles.innerContent}>
 
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Text style={[styles.backBtnText, { fontSize: fs.sm }]}>⬅️ Volver</Text>
+          </TouchableOpacity>
+
           <View style={styles.card}>
             <Text style={[styles.title, { fontSize: fs.lg }]}>{event.title}</Text>
             {[
@@ -252,9 +256,6 @@ export default function EventDetailScreen({ route, navigation }) {
             })}
           </View>
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={[styles.backBtnText, { fontSize: fs.sm }]}>⬅️ Volver</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -262,8 +263,8 @@ export default function EventDetailScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f5f7fb', minHeight: Platform.OS === 'web' ? '100vh' : undefined },
-  scrollView: { flex: 1, maxHeight: Platform.OS === 'web' ? '100vh' : undefined, overflow: Platform.OS === 'web' ? 'scroll' : 'visible' },
+  root: { flex: 1, backgroundColor: '#f5f7fb' },
+  scrollView: { flex: 1, ...(Platform.OS === 'web' && { overflow: 'auto' }) },
   scroll: { flexGrow: 1, alignItems: 'center' },
   innerContent: { width: '100%', maxWidth: 720 },
   card: {
