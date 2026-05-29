@@ -10,7 +10,8 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { CalendarDays, Clock } from 'lucide-react-native';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../api/firebase';
 
 if (Platform.OS === 'web') {
   const style = document.createElement('style');
@@ -38,11 +39,24 @@ const CATEGORIES = [
   'Voluntariado',
 ];
 
-export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
+const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function formatDateDisplay(iso) {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  const [year, month, day] = parts;
+  const m = parseInt(month, 10);
+  if (m < 1 || m > 12) return iso;
+  return `${parseInt(day, 10)} de ${MONTHS_ES[m - 1]}, ${year}`;
+}
+
+export default function CreateEventScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 650;
 
   const today = new Date().toISOString().split('T')[0];
+  const currentUser = auth.currentUser;
+  const createdBy = currentUser?.displayName || currentUser?.email || 'Usuario';
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -52,43 +66,51 @@ export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
   const [endDate, setEndDate] = useState(today);
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleStartDate = (value) => {
     setStartDate(value);
-
-    if (endDate < value) {
-      setEndDate(value);
-    }
+    if (endDate < value) setEndDate(value);
   };
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = async () => {
     if (!title || !description || !category || !startDate || !endDate || !time || !location) {
       Alert.alert('Campos incompletos', 'Por favor, llena todos los campos.');
       return;
     }
-
     if (startDate < today || endDate < today) {
       Alert.alert('Fecha inválida', 'Las fechas no pueden ser anteriores a la fecha actual.');
       return;
     }
-
     if (endDate < startDate) {
       Alert.alert('Fecha inválida', 'La fecha de fin no puede ser anterior a la fecha de inicio.');
       return;
     }
 
-    console.log({
-      title,
-      description,
-      category,
-      createdBy,
-      startDate,
-      endDate,
-      time,
-      location,
-    });
-
-    onCreated();
+    setLoading(true);
+    try {
+      const dateTimestamp = new Date(startDate + 'T00:00:00').getTime();
+      await addDoc(collection(db, 'events'), {
+        title,
+        description,
+        category,
+        createdBy: currentUser?.uid || 'anon',
+        date: formatDateDisplay(startDate),
+        dateISO: startDate,
+        dateTimestamp,
+        time,
+        location,
+        attendees: [],
+        createdAt: serverTimestamp(),
+      });
+      Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
+        { text: 'Aceptar', onPress: () => navigation.navigate('Home') },
+      ]);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,7 +120,7 @@ export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Crear Evento</Text>
 
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <TouchableOpacity style={styles.closeButton} onPress={navigation.goBack}>
             <Text style={styles.closeText}>×</Text>
           </TouchableOpacity>
         </View>
@@ -187,7 +209,7 @@ export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
                   />
 
                   <View style={styles.webPickerIconBox}>
-                   <CalendarDays size={22} color="#307A00" />
+                    <Text style={{ fontSize: 18 }}>📅</Text>
                   </View>
                 </View>
               ) : (
@@ -215,7 +237,7 @@ export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
                   />
 
                   <View style={styles.webPickerIconBox}>
-                    <CalendarDays size={22} color="#307A00" />
+                    <Text style={{ fontSize: 18 }}>📅</Text>
                   </View>
                 </View>
               ) : (
@@ -244,7 +266,7 @@ export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
                   />
 
                   <View style={styles.webPickerIconBox}>
-                    <Clock size={22} color="#307A00" />
+                    <Text style={{ fontSize: 18 }}>⏰</Text>
                   </View>
                 </View>
               ) : (
@@ -275,13 +297,14 @@ export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
           <TouchableOpacity
             style={[styles.acceptButton, isMobile && styles.fullButton]}
             onPress={handleCreateEvent}
+            disabled={loading}
           >
-            <Text style={styles.acceptText}>Aceptar</Text>
+            <Text style={styles.acceptText}>{loading ? 'Guardando...' : 'Aceptar'}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.cancelButton, isMobile && styles.fullButton]}
-            onPress={onClose}
+            onPress={navigation.goBack}
           >
             <Text style={styles.cancelText}>Cancelar</Text>
           </TouchableOpacity>

@@ -7,12 +7,11 @@ import { NavigationContainer } from '@react-navigation/native';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
-
-
 import HomeScreen from '../screens/HomeScreen';
 import CreateEventScreen from '../screens/CreateEventScreen';
 import EventDetailScreen from '../screens/EventDetailScreen';
 import StatsScreen from '../screens/StatsScreen';
+import HistoryScreen from '../screens/HistoryScreen';
 
 // Componente de respaldo para evitar el error "Invalid Component" si el archivo de un compañero falla
 const ScreenPlaceholder = ({ name }) => (
@@ -58,6 +57,7 @@ export default function AppNavigator() {
         <Stack.Screen name="CreateEvent" component={CreateEventScreen || (() => <ScreenPlaceholder name="Crear Evento" />)} options={{ title: 'Crear Evento' }} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Detalle del Evento' }} />
         <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Estadísticas del Proyecto' }} />
+        <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Mi Historial' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
