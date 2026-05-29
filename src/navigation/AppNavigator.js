@@ -23,11 +23,11 @@ const ScreenPlaceholder = ({ name }) => (
 
 const Stack = createStackNavigator();
 
-export default function AppNavigator() {
+export default function AppNavigator({ initialRoute = 'Login' }) {
   return (
     <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName="Login"
+      <Stack.Navigator
+        initialRouteName={initialRoute}
         screenOptions={{
           headerStyle: {
             backgroundColor: '#2E8B57',

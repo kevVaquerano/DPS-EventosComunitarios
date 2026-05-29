@@ -61,7 +61,7 @@ export default function CreateEventScreen({ navigation, onClose, onCreated, crea
 
   const handleClose = () => {
     if (onClose) onClose();
-    else if (navigation) handleClose();
+    else if (navigation) navigation.goBack();
   };
 
   const [title, setTitle] = useState('');
