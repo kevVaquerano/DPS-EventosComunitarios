@@ -15,45 +15,10 @@ import {
   Animated,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { auth } from '../api/firebase';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { auth, db } from '../api/firebase';
 import { useRoute } from '@react-navigation/native';
 import CreateEventScreen from './CreateEventScreen';
-
-const EVENTOS_DUMMY = [
-  {
-    id: '1',
-    title: 'Campaña de Reciclaje Local',
-    date: '28 de Mayo, 2026',
-    dateISO: '2026-05-28',
-    time: '8:00 AM',
-    location: 'Parque Central de la Comunidad',
-    category: 'Comunidad',
-    createdBy: 'María López',
-    description: 'Trae tus botellas de plástico, cartón y latas para ayudar a limpiar nuestro entorno.',
-  },
-  {
-    id: '2',
-    title: 'Torneo de Fútbol Comunitario',
-    date: '30 de Mayo, 2026',
-    dateISO: '2026-05-30',
-    time: '2:00 PM',
-    location: 'Cancha Municipal',
-    category: 'Deportes',
-    createdBy: 'Luis Padilla',
-    description: 'Inscripciones abiertas para equipos de todas las edades.',
-  },
-  {
-    id: '3',
-    title: 'Taller de Huertos Caseros',
-    date: '02 de Junio, 2026',
-    dateISO: '2026-06-02',
-    time: '10:00 AM',
-    location: 'Centro Escolar Comunitario',
-    category: 'Educación',
-    createdBy: 'Carliz Castillo',
-    description: 'Aprende a cultivar tus propias verduras y legumbres orgánicas.',
-  },
-];
 
 const TIME_FILTERS = [
   'Todos',
@@ -93,7 +58,7 @@ const CATEGORY_FILTERS = [
 ];
 
 export default function HomeScreen({ navigation }) {
-  const [events] = useState(EVENTOS_DUMMY);
+  const [events, setEvents] = useState([]);
   const [search, setSearch] = useState('');
   const [timeFilter, setTimeFilter] = useState('Todos');
   const [categoryFilter, setCategoryFilter] = useState('Todas');
@@ -151,6 +116,13 @@ export default function HomeScreen({ navigation }) {
       {children}
     </Pressable>
   );
+
+  useEffect(() => {
+    const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snap) => {
+      setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }, []);
 
   const route = useRoute();
   const [showSuccess, setShowSuccess] = useState(false);
