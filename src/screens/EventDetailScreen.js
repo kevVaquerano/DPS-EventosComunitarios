@@ -6,6 +6,7 @@ import {
 import {
   collection, addDoc, onSnapshot, orderBy, query,
   doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, serverTimestamp,
+  getDoc,
 } from 'firebase/firestore';
 import * as Notifications from 'expo-notifications';
 import { db, auth } from '../api/firebase';
@@ -55,6 +56,30 @@ export default function EventDetailScreen({ route, navigation }) {
   const currentUser = auth.currentUser;
   const isAttending = currentUser && attendees.includes(currentUser.uid);
   const eventRef    = doc(db, 'events', event.id);
+
+  // El creador puede identificarse por uid guardado en createdByUid o en createdBy (eventos viejos)
+  const isCreator = currentUser && (
+    event.createdByUid === currentUser.uid ||
+    event.createdBy === currentUser.uid
+  );
+
+  const handleDeleteEvent = async () => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm(`¿Eliminar el evento "${event.title}"?`)
+      : await new Promise((resolve) =>
+          Alert.alert('Eliminar Evento', `¿Eliminar "${event.title}"?`, [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+          ])
+        );
+    if (!confirmed) return;
+    try {
+      await deleteDoc(eventRef);
+      navigation.goBack();
+    } catch {
+      Alert.alert('Error', 'No se pudo eliminar el evento.');
+    }
+  };
 
   useEffect(() => {
     if (!event.id) return;
@@ -156,6 +181,20 @@ export default function EventDetailScreen({ route, navigation }) {
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={[styles.backBtnText, { fontSize: fs.sm }]}>⬅️ Volver</Text>
           </TouchableOpacity>
+
+          {isCreator && (
+            <View style={styles.ownerActions}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => navigation.navigate('CreateEvent', { event })}
+              >
+                <Text style={[styles.editBtnText, { fontSize: fs.sm }]}>✏️ Editar evento</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteEvent}>
+                <Text style={[styles.deleteBtnText, { fontSize: fs.sm }]}>🗑️ Eliminar evento</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={styles.card}>
             <Text style={[styles.title, { fontSize: fs.lg }]}>{event.title}</Text>
@@ -306,6 +345,11 @@ const styles = StyleSheet.create({
   commentRating: { color: '#FFD700' },
   deleteIcon: { fontSize: 16, paddingHorizontal: 4 },
   commentText: { color: '#555' },
-  backBtn: { backgroundColor: '#1E90FF', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 16 },
+  backBtn: { backgroundColor: '#1E90FF', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 10 },
   backBtnText: { color: '#fff', fontWeight: 'bold' },
+  ownerActions: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  editBtn: { flex: 1, backgroundColor: '#f0f9ff', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#bae6fd' },
+  editBtnText: { color: '#0284c7', fontWeight: '700' },
+  deleteBtn: { flex: 1, backgroundColor: '#fff1f2', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecdd3' },
+  deleteBtnText: { color: '#e11d48', fontWeight: '700' },
 });

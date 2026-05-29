@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../api/firebase';
 
 if (Platform.OS === 'web') {
@@ -50,8 +50,10 @@ function formatDateDisplay(iso) {
   return `${parseInt(day, 10)} de ${MONTHS_ES[m - 1]}, ${year}`;
 }
 
-// Soporta dos modos: modal inline (onClose/onCreated) y pantalla de navegación (navigation)
-export default function CreateEventScreen({ navigation, onClose, onCreated, createdBy: createdByProp }) {
+// Soporta tres modos: modal inline, navegación para crear y navegación para editar (route.params.event)
+export default function CreateEventScreen({ navigation, route, onClose, onCreated, createdBy: createdByProp }) {
+  const editingEvent = route?.params?.event || null;
+
   const { width } = useWindowDimensions();
   const isMobile = width < 650;
 
@@ -64,14 +66,14 @@ export default function CreateEventScreen({ navigation, onClose, onCreated, crea
     else if (navigation) navigation.goBack();
   };
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Comunidad');
+  const [title, setTitle] = useState(editingEvent?.title || '');
+  const [description, setDescription] = useState(editingEvent?.description || '');
+  const [category, setCategory] = useState(editingEvent?.category || 'Comunidad');
   const [showCategories, setShowCategories] = useState(false);
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
-  const [time, setTime] = useState('');
-  const [location, setLocation] = useState('');
+  const [startDate, setStartDate] = useState(editingEvent?.dateISO || today);
+  const [endDate, setEndDate] = useState(editingEvent?.dateISO || today);
+  const [time, setTime] = useState(editingEvent?.time || '');
+  const [location, setLocation] = useState(editingEvent?.location || '');
   const [loading, setLoading] = useState(false);
 
   const handleStartDate = (value) => {
@@ -96,26 +98,35 @@ export default function CreateEventScreen({ navigation, onClose, onCreated, crea
     setLoading(true);
     try {
       const dateTimestamp = new Date(startDate + 'T00:00:00').getTime();
-      await addDoc(collection(db, 'events'), {
-        title,
-        description,
-        category,
-        createdBy: createdBy,
-        createdByUid: currentUser?.uid || 'anon',
-        date: formatDateDisplay(startDate),
-        dateISO: startDate,
-        dateTimestamp,
-        time,
-        location,
-        attendees: [],
-        createdAt: serverTimestamp(),
-      });
-      if (onCreated) {
-        onCreated();
-      } else {
-        Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
-          { text: 'Aceptar', onPress: () => navigation?.navigate('Home') },
+      const dateDisplay = formatDateDisplay(startDate);
+
+      if (editingEvent) {
+        await updateDoc(doc(db, 'events', editingEvent.id), {
+          title, description, category,
+          date: dateDisplay, dateISO: startDate, dateTimestamp,
+          time, location,
+          updatedAt: serverTimestamp(),
+        });
+        Alert.alert('¡Actualizado!', 'El evento fue actualizado correctamente.', [
+          { text: 'Aceptar', onPress: () => navigation?.goBack() },
         ]);
+      } else {
+        await addDoc(collection(db, 'events'), {
+          title, description, category,
+          createdBy: createdBy,
+          createdByUid: currentUser?.uid || 'anon',
+          date: dateDisplay, dateISO: startDate, dateTimestamp,
+          time, location,
+          attendees: [],
+          createdAt: serverTimestamp(),
+        });
+        if (onCreated) {
+          onCreated();
+        } else {
+          Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
+            { text: 'Aceptar', onPress: () => navigation?.navigate('Home') },
+          ]);
+        }
       }
     } catch {
       Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
@@ -129,7 +140,7 @@ export default function CreateEventScreen({ navigation, onClose, onCreated, crea
       <View style={[styles.card, isMobile && styles.cardMobile]}>
 
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Crear Evento</Text>
+          <Text style={styles.headerTitle}>{editingEvent ? 'Editar Evento' : 'Crear Evento'}</Text>
 
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeText}>×</Text>
@@ -310,7 +321,7 @@ export default function CreateEventScreen({ navigation, onClose, onCreated, crea
             onPress={handleCreateEvent}
             disabled={loading}
           >
-            <Text style={styles.acceptText}>{loading ? 'Guardando...' : 'Aceptar'}</Text>
+            <Text style={styles.acceptText}>{loading ? 'Guardando...' : editingEvent ? 'Actualizar' : 'Aceptar'}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
