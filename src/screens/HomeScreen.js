@@ -370,11 +370,19 @@ export default function HomeScreen({ navigation }) {
                       <View style={styles.cardTopInfo}>
                         <View style={styles.creatorPill}>
                           <Text style={styles.creatorText}>
-                            <Text style={styles.creatorBold}>Creado por:</Text> {
-                              !item.createdBy || item.createdBy === 'anon' || (item.createdBy.length > 20 && !item.createdBy.includes(' ') && !item.createdBy.includes('@'))
-                                ? 'Usuario'
-                                : item.createdBy
-                            }
+                            <Text style={styles.creatorBold}>Creado por:</Text> {(() => {
+                              const cb = item.createdBy;
+                              if (!cb || cb === 'anon') return 'Usuario';
+                              // Si es un UID largo y el usuario actual es el creador, mostramos su nombre real
+                              const isUid = cb.length > 20 && !cb.includes(' ') && !cb.includes('@');
+                              if (isUid) {
+                                if (currentUser && (cb === currentUser.uid || item.createdByUid === currentUser.uid)) {
+                                  return currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario';
+                                }
+                                return 'Usuario';
+                              }
+                              return cb;
+                            })()}
                           </Text>
                         </View>
                         <View style={styles.categoryPill}>
