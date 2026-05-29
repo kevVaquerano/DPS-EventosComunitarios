@@ -1,303 +1,975 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  StyleSheet, Text, View, FlatList, TouchableOpacity,
-  Alert, TextInput, ActivityIndicator, SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  useWindowDimensions,
+  SafeAreaView,
+  Platform,
+  Image,
+  Pressable,
+  Animated,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
-import { collection, onSnapshot, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
-import { auth, db } from '../api/firebase';
-import { useResponsive } from '../utils/responsive';
+import { auth } from '../api/firebase';
+import { useRoute } from '@react-navigation/native';
+import CreateEventScreen from './CreateEventScreen';
 
-const CATEGORIES = ['Todos', 'Comunidad', 'Deportes', 'Educación', 'Cultura', 'Voluntariado'];
+const EVENTOS_DUMMY = [
+  {
+    id: '1',
+    title: 'Campaña de Reciclaje Local',
+    date: '28 de Mayo, 2026',
+    dateISO: '2026-05-28',
+    time: '8:00 AM',
+    location: 'Parque Central de la Comunidad',
+    category: 'Comunidad',
+    createdBy: 'María López',
+    description: 'Trae tus botellas de plástico, cartón y latas para ayudar a limpiar nuestro entorno.',
+  },
+  {
+    id: '2',
+    title: 'Torneo de Fútbol Comunitario',
+    date: '30 de Mayo, 2026',
+    dateISO: '2026-05-30',
+    time: '2:00 PM',
+    location: 'Cancha Municipal',
+    category: 'Deportes',
+    createdBy: 'Luis Padilla',
+    description: 'Inscripciones abiertas para equipos de todas las edades.',
+  },
+  {
+    id: '3',
+    title: 'Taller de Huertos Caseros',
+    date: '02 de Junio, 2026',
+    dateISO: '2026-06-02',
+    time: '10:00 AM',
+    location: 'Centro Escolar Comunitario',
+    category: 'Educación',
+    createdBy: 'Carliz Castillo',
+    description: 'Aprende a cultivar tus propias verduras y legumbres orgánicas.',
+  },
+];
+
+const TIME_FILTERS = [
+  'Todos',
+  'Esta semana',
+  'Semana anterior',
+  'Este mes',
+  'Hace seis meses',
+  'Un año',
+  'Tiempo atrás',
+];
+
+const CATEGORY_EMOJIS = {
+  Comunidad: '🤝',
+  Deportes: '⚽',
+  Educación: '📚',
+  Salud: '🏥',
+  Cultura: '🎭',
+  Música: '🎵',
+  MedioAmbiente: '🌱',
+  Tecnología: '💻',
+  Emprendimiento: '💼',
+  Voluntariado: '🙋',
+};
+
+const CATEGORY_FILTERS = [
+  'Todas',
+  'Comunidad',
+  'Deportes',
+  'Educación',
+  'Salud',
+  'Cultura',
+  'Música',
+  'MedioAmbiente',
+  'Tecnología',
+  'Emprendimiento',
+  'Voluntariado',
+];
 
 export default function HomeScreen({ navigation }) {
-  const [events, setEvents]       = useState([]);
-  const [search, setSearch]       = useState('');
-  const [filter, setFilter]       = useState('Todos');
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState('upcoming');
-  const [loading, setLoading]     = useState(true);
+  const [events] = useState(EVENTOS_DUMMY);
+  const [search, setSearch] = useState('');
+  const [timeFilter, setTimeFilter] = useState('Todos');
+  const [categoryFilter, setCategoryFilter] = useState('Todas');
+  const [showTimeFilters, setShowTimeFilters] = useState(false);
+  const [showCategoryFilters, setShowCategoryFilters] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const { isMobile, isDesktop, columns, hPad, fs, sp } = useResponsive();
   const currentUser = auth.currentUser;
-  const now = Date.now();
 
-  useEffect(() => {
-    // onSnapshot mantiene los eventos sincronizados en tiempo real sin necesidad de recargar
-    const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, () => setLoading(false));
-    return unsubscribe;
-  }, []);
+  const userName =
+    currentUser?.displayName ||
+    currentUser?.email?.split('@')[0] ||
+    'Usuario';
+
+  const { width } = useWindowDimensions();
+
+  const isMobile = width < 650;
+  const columns = width >= 1000 ? 3 : width >= 700 ? 2 : 1;
 
   const handleSignOut = async () => {
-    try { await signOut(auth); navigation.replace('Login'); }
-    catch { Alert.alert('Error', 'No se pudo cerrar la sesión.'); }
-  };
-
-  const handleDelete = (event) => {
-    Alert.alert('Eliminar Evento', `¿Eliminar "${event.title}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try { await deleteDoc(doc(db, 'events', event.id)); }
-        catch { Alert.alert('Error', 'No se pudo eliminar el evento.'); }
-      }},
-    ]);
+    try {
+      await signOut(auth);
+      navigation.replace('Login');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo cerrar la sesión.');
+    }
   };
 
   const filteredEvents = useMemo(() => {
-    // Se separan primero por fecha y luego por búsqueda/categoría para evitar recálculos innecesarios
-    const byTab = events.filter((e) => {
-      if (!e.dateTimestamp) return activeTab === 'upcoming';
-      return activeTab === 'upcoming' ? e.dateTimestamp >= now : e.dateTimestamp < now;
-    });
-    return byTab.filter((e) => {
-      const text = `${e.title} ${e.location} ${e.category}`.toLowerCase();
-      return text.includes(search.toLowerCase()) && (filter === 'Todos' || e.category === filter);
-    });
-  }, [events, search, filter, activeTab]);
+    return events.filter((event) => {
+      const text = `${event.title} ${event.location} ${event.category}`.toLowerCase();
+      const matchesSearch = text.includes(search.toLowerCase());
 
-  const renderEventItem = ({ item }) => {
-    // Solo el creador del evento puede ver las opciones de edición y eliminación
-    const isOwner      = currentUser && item.createdBy === currentUser.uid;
-    const attendeeCount = item.attendees?.length || 0;
-    return (
-      <TouchableOpacity
-        style={[styles.eventCard, columns > 1 && styles.eventCardMulti]}
-        onPress={() => navigation.navigate('EventDetail', { event: item })}
-        activeOpacity={0.85}
-      >
-        <View style={styles.cardBanner}>
-          <Text style={styles.cardIcon}>🎉</Text>
-        </View>
-        <View style={styles.cardBody}>
-          <View style={styles.categoryPill}>
-            <Text style={[styles.categoryText, { fontSize: fs.xs }]}>{item.category}</Text>
-          </View>
-          <Text style={[styles.eventTitle, { fontSize: fs.md }]} numberOfLines={2}>{item.title}</Text>
-          <Text style={[styles.eventMeta, { fontSize: fs.xs }]}>📅 {item.date}</Text>
-          <Text style={[styles.eventMeta, { fontSize: fs.xs }]}>⏰ {item.time}</Text>
-          <Text style={[styles.eventMeta, { fontSize: fs.xs }]} numberOfLines={1}>📍 {item.location}</Text>
-          <Text style={[styles.attendeeCount, { fontSize: fs.xs }]}>
-            👥 {attendeeCount} asistente{attendeeCount !== 1 ? 's' : ''}
-          </Text>
-          <TouchableOpacity
-            style={styles.detailButton}
-            onPress={() => navigation.navigate('EventDetail', { event: item })}
-          >
-            <Text style={[styles.detailButtonText, { fontSize: fs.sm }]}>Ver detalles</Text>
-          </TouchableOpacity>
-          {isOwner && (
-            <View style={styles.ownerActions}>
-              <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('CreateEvent', { event: item })}>
-                <Text style={[styles.editBtnText, { fontSize: fs.xs }]}>✏️ Editar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
-                <Text style={[styles.deleteBtnText, { fontSize: fs.xs }]}>🗑️ Eliminar</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+      const matchesCategory =
+        categoryFilter === 'Todas' || event.category === categoryFilter;
+
+      const matchesTime =
+        timeFilter === 'Todos' ||
+        event.date.includes('Mayo') ||
+        event.date.includes('Junio');
+
+      return matchesSearch && matchesCategory && matchesTime;
+    });
+  }, [events, search, categoryFilter, timeFilter]);
+
+  const AnimatedPressable = ({ children, style, hoverStyle, onPress }) => (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed, hovered }) => [
+        style,
+        hovered && hoverStyle,
+        pressed && styles.buttonPressed,
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+
+  const route = useRoute();
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const popupScale = useRef(new Animated.Value(0)).current;
+  const popupOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (route.params?.eventCreated) {
+      setShowSuccess(true);
+
+      Animated.parallel([
+        Animated.spring(popupScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(popupOpacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(popupScale, {
+            toValue: 0,
+            duration: 180,
+            useNativeDriver: true,
+          }),
+          Animated.timing(popupOpacity, {
+            toValue: 0,
+            duration: 180,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setShowSuccess(false);
+          navigation.setParams({ eventCreated: false });
+        });
+      }, 2200);
+    }
+  }, [route.params?.eventCreated]);
 
   return (
-    <SafeAreaView style={styles.root}>
-      <View style={[styles.header, { paddingHorizontal: hPad }]}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.logoText, { fontSize: isMobile ? 20 : 24 }]}>Eventus</Text>
-          {!isMobile && (
-            <Text style={[styles.subtitleText, { fontSize: fs.xs }]}>
-              Gestiona tus eventos comunitarios
-            </Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          isMobile && styles.scrollContainerMobile,
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.header, isMobile && styles.headerMobile]}>
+          {isMobile ? (
+            <>
+              <View style={styles.headerTopMobile}>
+                <View style={styles.headerTextBoxMobile}>
+                  <Text style={styles.welcomeText}>¡Hola, {userName}!</Text>
+                  <Text style={styles.subtitleText}>
+                    Explora los eventos próximos disponibles
+                  </Text>
+                </View>
+
+                <Image
+                  source={require('../images/EventusLogo.png')}
+                  style={styles.logoImageMobile}
+                />
+              </View>
+
+              <View style={styles.headerActionsMobile}>
+                <AnimatedPressable
+                  style={styles.notificationButton}
+                  hoverStyle={styles.buttonHover}
+                >
+                  <Text style={styles.notificationText}>🔔</Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  style={styles.logoutButton}
+                  hoverStyle={styles.darkButtonHover}
+                  onPress={handleSignOut}
+                >
+                  <Text style={styles.logoutText}>Cerrar sesión</Text>
+                </AnimatedPressable>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.headerTextBox}>
+                <Text style={styles.welcomeText}>¡Hola, {userName}!</Text>
+                <Text style={styles.subtitleText}>
+                  Explora los eventos próximos disponibles
+                </Text>
+              </View>
+
+              <Image
+                source={require('../images/EventusLogo.png')}
+                style={styles.logoImage}
+              />
+
+              <View style={styles.headerActions}>
+                <AnimatedPressable
+                  style={styles.notificationButton}
+                  hoverStyle={styles.buttonHover}
+                >
+                  <Text style={styles.notificationText}>🔔</Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  style={styles.logoutButton}
+                  hoverStyle={styles.darkButtonHover}
+                  onPress={handleSignOut}
+                >
+                  <Text style={styles.logoutText}>Cerrar sesión</Text>
+                </AnimatedPressable>
+              </View>
+            </>
           )}
         </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('History')}>
-            <Text style={styles.iconEmoji}>📋</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Stats')}>
-            <Text style={styles.iconEmoji}>📊</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CreateEvent')}>
-            <Text style={styles.iconEmoji}>➕</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
-            <Text style={[styles.logoutText, { fontSize: fs.xs }]}>Salir</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      <View style={[styles.content, { paddingHorizontal: hPad }]}>
-        <View style={styles.tabsRow}>
-          {['upcoming', 'past'].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
+        <View style={[styles.mainCard, isMobile && styles.mainCardMobile]}>
+          <View style={[styles.searchRow, isMobile && styles.searchRowMobile]}>
+            <View style={[styles.searchBox, isMobile && styles.searchBoxMobile]}>
+              <Text style={styles.searchIcon}>⌕</Text>
+
+              <TextInput
+                placeholder="Buscar eventos, lugares..."
+                placeholderTextColor="#94a3b8"
+                value={search}
+                onChangeText={setSearch}
+                style={styles.searchInput}
+              />
+            </View>
+
+           <View
+              style={[
+                styles.filterWrapper,
+                styles.timeFilterBox,
+                isMobile && styles.fullWidth,
+                showTimeFilters && styles.dropdownOnTop,
+              ]}
             >
-              <Text style={[styles.tabText, { fontSize: fs.sm }, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'upcoming' ? '🗓 Próximos' : '🕐 Pasados'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              <View style={[styles.filterButton, isMobile && styles.filterButtonMobile]}>
+                <Text style={styles.filterText}>{timeFilter}</Text>
 
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <TextInput
-              placeholder="Buscar eventos..."
-              placeholderTextColor="#94a3b8"
-              value={search}
-              onChangeText={setSearch}
-              style={[styles.searchInput, { fontSize: fs.sm }]}
-            />
-            <Text>🔍</Text>
-          </View>
-          <View style={styles.filterWrap}>
-            <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilters(!showFilters)}>
-              <Text style={[styles.filterText, { fontSize: fs.sm }]} numberOfLines={1}>{filter}</Text>
-              <Text style={styles.filterArrow}>⌄</Text>
-            </TouchableOpacity>
-            {showFilters && (
-              <View style={styles.filterMenu}>
-                {CATEGORIES.map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    style={styles.filterOption}
-                    onPress={() => { setFilter(opt); setShowFilters(false); }}
-                  >
-                    <Text style={[styles.filterOptionText, { fontSize: fs.sm }]}>{opt}</Text>
-                  </TouchableOpacity>
-                ))}
+                <Pressable
+                  style={[styles.filterArrow, isMobile && styles.filterArrowMobile]}
+                  onPress={() => {
+                    setShowTimeFilters(!showTimeFilters);
+                    setShowCategoryFilters(false);
+                  }}
+                >
+                  <Text style={styles.filterArrowText}>
+                    {showTimeFilters ? '▲' : '▼'}
+                  </Text>
+                </Pressable>
               </View>
+
+              {showTimeFilters && (
+                <View style={styles.filterMenu}>
+                  {TIME_FILTERS.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={styles.filterOption}
+                      onPress={() => {
+                        setTimeFilter(option);
+                        setShowTimeFilters(false);
+                      }}
+                    >
+                      <Text style={styles.filterOptionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.filterWrapper,
+                styles.categoryFilterBox,
+                isMobile && styles.fullWidth,
+                isMobile && styles.categoryFilterMobile,
+                showCategoryFilters && styles.dropdownOnTop,
+              ]}
+            >
+              <View style={[styles.filterButton, isMobile && styles.filterButtonMobile]}>
+                <Text style={styles.filterText}>{categoryFilter}</Text>
+
+                <Pressable
+                  style={[styles.filterArrow, isMobile && styles.filterArrowMobile]}
+                  onPress={() => {
+                    setShowCategoryFilters(!showCategoryFilters);
+                    setShowTimeFilters(false);
+                  }}
+                >
+                  <Text style={styles.filterArrowText}>
+                    {showCategoryFilters ? '▲' : '▼'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {showCategoryFilters && (
+                <View style={styles.filterMenu}>
+                  {CATEGORY_FILTERS.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={styles.filterOption}
+                      onPress={() => {
+                        setCategoryFilter(option);
+                        setShowCategoryFilters(false);
+                      }}
+                    >
+                      <Text style={styles.filterOptionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.eventsGrid}>
+            {filteredEvents.length > 0 ? (
+              filteredEvents.map((item) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.eventCard,
+                    {
+                      width: columns === 1 ? '100%' : `${100 / columns}%`,
+                    },
+                  ]}
+                >
+                  <View style={styles.eventCardInner}>
+                    <View style={styles.cardImage}>
+                      <Text style={styles.cardIcon}>
+                        {CATEGORY_EMOJIS[item.category] || '🎉'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.cardContent}>
+                      <View style={styles.cardTopInfo}>
+                        <View style={styles.creatorPill}>
+                          <Text style={styles.creatorText}>
+                            <Text style={styles.creatorBold}>Creado por:</Text> {item.createdBy || 'Usuario'}
+                          </Text>
+                        </View>
+                        <View style={styles.categoryPill}>
+                          <Text style={styles.categoryText}>{item.category}</Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.eventTitle}>{item.title}</Text>
+
+                      <Text style={styles.eventInfo}>📅 {item.date}</Text>
+                      <Text style={styles.eventInfo}>⏰ {item.time}</Text>
+                      <Text style={styles.eventLocation}>📍 {item.location}</Text>
+
+                      <AnimatedPressable
+                        style={styles.detailButton}
+                        hoverStyle={styles.darkButtonHover}
+                        onPress={() => navigation.navigate('EventDetail', { event: item })}
+                      >
+                        <Text style={styles.detailButtonText}>Ver detalles</Text>
+                      </AnimatedPressable>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>No hay eventos disponibles.</Text>
             )}
           </View>
         </View>
+      </ScrollView>
 
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={[styles.loadingText, { fontSize: fs.sm }]}>Cargando eventos...</Text>
-          </View>
-        ) : (
-          // key={columns} fuerza a FlatList a recrearse cuando cambia el número de columnas
-          <FlatList
-            key={columns}
-            data={filteredEvents}
-            keyExtractor={(item) => item.id}
-            renderItem={renderEventItem}
-            numColumns={columns}
-            columnWrapperStyle={columns > 1 ? { gap: 16 } : null}
-            contentContainerStyle={{ paddingBottom: 100, paddingTop: 4 }}
-            ListEmptyComponent={
-              <Text style={[styles.emptyText, { fontSize: fs.md }]}>
-                {activeTab === 'upcoming' ? 'No hay eventos próximos. ¡Crea el primero!' : 'No hay eventos pasados.'}
-              </Text>
-            }
-          />
-        )}
-      </View>
-
-      {/* FAB solo en mobile porque en desktop ya hay botón en el header */}
-      {isMobile && (
-        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateEvent')}>
-          <Text style={styles.fabText}>＋</Text>
-        </TouchableOpacity>
+      {showSuccess && (
+        <Animated.View
+          style={[
+            styles.successPopup,
+            {
+              opacity: popupOpacity,
+              transform: [{ scale: popupScale }],
+            },
+          ]}
+        >
+          <Text style={styles.successPopupText}>✅ Evento creado exitosamente</Text>
+        </Animated.View>
       )}
+
+      {showCreateForm && (
+        <View style={styles.modalOverlay}>
+          <CreateEventScreen
+            createdBy={userName}
+            onClose={() => setShowCreateForm(false)}
+            onCreated={() => {
+              setShowCreateForm(false);
+              setShowSuccess(true);
+            }}
+          />
+        </View>
+      )}
+
+      <AnimatedPressable
+        style={styles.fab}
+        hoverStyle={styles.fabHover}
+        onPress={() => setShowCreateForm(true)}
+      >
+        <Text style={styles.fabText}>＋</Text>
+      </AnimatedPressable>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f5f7fb' },
+  container: {
+    flex: 1,
+    minHeight: Platform.OS === 'web' ? '100vh' : '100%',
+    backgroundColor: '#f5f7fb',
+  },
+
+  scrollView: {
+    flex: 1,
+    maxHeight: Platform.OS === 'web' ? '100vh' : undefined,
+    overflow: Platform.OS === 'web' ? 'scroll' : 'visible',
+  },
+
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+
+  scrollContainerMobile: {
+    paddingBottom: 60,
+  },
+
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  headerLeft: { flex: 1 },
-  logoText: { fontWeight: '900', color: '#2563eb' },
-  subtitleText: { color: '#64748b', marginTop: 2 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconBtn: {
-    width: 38, height: 38, borderRadius: 10,
-    backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: '#e2e8f0',
+
+  headerMobile: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  iconEmoji: { fontSize: 16 },
-  logoutBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#0f172a' },
-  logoutText: { color: '#fff', fontWeight: '700' },
-  content: { flex: 1 },
-  tabsRow: {
+
+  headerTopMobile: {
+    width: '100%',
     flexDirection: 'row',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 14,
-    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+
+  headerTextBoxMobile: {
+    flexShrink: 1,
+    maxWidth: 230,
+  },
+
+  logoImageMobile: {
+    width: 135,
+    height: 75,
+    resizeMode: 'contain',
+  },
+
+  headerActionsMobile: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 48,
     marginTop: 16,
-    marginBottom: 12,
   },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  tabActive: { backgroundColor: '#2563eb' },
-  tabText: { fontWeight: '700', color: '#64748b' },
-  tabTextActive: { color: '#fff' },
-  searchRow: { flexDirection: 'row', gap: 10, marginBottom: 12, zIndex: 20 },
+
+  headerTextBox: {
+    flexShrink: 1,
+    justifyContent: 'center',
+  },
+
+  welcomeText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#06402B',
+    marginTop: 0,
+  },
+
+  subtitleText: {
+    fontSize: 14,
+    color: '#006400',
+    marginTop: 8,
+  },
+
+  logoImage: {
+    width: 145,
+    height: 75,
+    resizeMode: 'contain',
+  },
+
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 24,
+    flexWrap: 'wrap',
+  },
+
+  notificationButton: {
+    width: 62,
+    height: 62,
+    borderRadius: 12,
+    backgroundColor: '#CEFCBA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#307A00',
+  },
+
+  notificationText: {
+    fontSize: 22,
+  },
+
+  logoutButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    backgroundColor: '#2a7326',
+  },
+
+  logoutText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+
+  mainCard: {
+    margin: 24,
+    padding: 22,
+    backgroundColor: '#ffffff',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 3,
+    minHeight: 480,
+    overflow: 'visible',
+  },
+
+  mainCardMobile: {
+    margin: 14,
+    padding: 16,
+    borderRadius: 22,
+  },
+
+  searchRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    marginBottom: 22,
+    zIndex: 999,
+  },
+
+  searchRowMobile: {
+    flexDirection: 'column',
+    gap: 16,
+  },
+
   searchBox: {
-    flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
+    flex: 1.7,
+    minWidth: 350,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    backgroundColor: '#F4FEEF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    gap: 10,
   },
-  searchInput: { flex: 1, color: '#0f172a', outlineStyle: 'none' },
-  filterWrap: { width: 130, position: 'relative' },
-  filterBtn: {
-    height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc', paddingHorizontal: 12,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+
+  searchBoxMobile: {
+    width: '100%',
+    minWidth: 0,
+    height: 48,
+    paddingRight: 0,
   },
-  filterText: { fontWeight: '700', color: '#334155', flex: 1 },
-  filterArrow: { fontSize: 18, color: '#334155' },
+
+  fullWidth: {
+    width: '100%',
+    minWidth: 0,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0f172a',
+    outlineStyle: 'none',
+  },
+
+  searchIcon: {
+    fontSize: 24,
+    color: '#307A00',
+  },
+
+  searchIconBox: {
+    height: 48,
+    width: 46,
+    marginRight: -14,
+    borderLeftWidth: 1,
+    borderLeftColor: '#307A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  searchIconBoxMobile: {
+    marginRight: 0,
+    height: '100%',
+  },
+
+  filterWrapper: {
+    position: 'relative',
+    zIndex: 50,
+  },
+
+  timeFilterBox: {
+    flex: 0.6,
+    minWidth: 190,
+  },
+
+  categoryFilterBox: {
+    flex: 0.6,
+    minWidth: 190,
+    paddingBottom: 16,
+  },
+
+  filterButton: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    backgroundColor: '#F4FEEF',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  filterButtonMobile: {
+    width: '100%',
+    paddingRight: 0,
+  },
+
+  categoryFilterMobile: {
+    marginTop: 18,
+  },
+
+  filterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+
+  filterArrow: {
+    height: 48,
+    width: 46,
+    marginRight: -14,
+    borderLeftWidth: 1,
+    borderLeftColor: '#307A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  filterArrowText: {
+    textAlign: 'center',
+    lineHeight: 48,
+    fontSize: 22,
+    color: '#307A00',
+  },
+
+  filterArrowMobile: {
+    marginRight: 0,
+    height: '100%',
+  },
+
   filterMenu: {
-    position: 'absolute', top: 50, left: 0, right: 0,
-    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0',
-    overflow: 'hidden', elevation: 6, zIndex: 99,
+    position: 'absolute',
+    top: 54,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    overflow: 'hidden',
+    elevation: 20,
+    zIndex: 999,
   },
-  filterOption: { paddingVertical: 10, paddingHorizontal: 14 },
-  filterOptionText: { color: '#334155' },
-  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  loadingText: { marginTop: 12, color: '#94a3b8' },
+
+  filterOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+
+  filterOptionText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+
+  dropdownOnTop: {
+    zIndex: 9999,
+    elevation: 9999,
+  },
+
+  eventsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -8,
+  },
+
   eventCard: {
-    backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden',
-    marginBottom: 16, borderWidth: 1, borderColor: '#e5e7eb',
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    paddingHorizontal: 8,
+    marginBottom: 18,
   },
-  eventCardMulti: { flex: 1 },
-  cardBanner: { height: 110, backgroundColor: '#dbeafe', alignItems: 'center', justifyContent: 'center' },
-  cardIcon: { fontSize: 38 },
-  cardBody: { padding: 14 },
-  categoryPill: { alignSelf: 'flex-start', backgroundColor: '#eff6ff', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999, marginBottom: 8 },
-  categoryText: { color: '#2563eb', fontWeight: '800' },
-  eventTitle: { fontWeight: '900', color: '#0f172a', marginBottom: 8 },
-  eventMeta: { color: '#475569', marginBottom: 3 },
-  attendeeCount: { color: '#94a3b8', marginBottom: 12 },
-  detailButton: { backgroundColor: '#2563eb', paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginBottom: 8 },
-  detailButtonText: { color: '#fff', fontWeight: '800' },
-  ownerActions: { flexDirection: 'row', gap: 6 },
-  editBtn: { flex: 1, backgroundColor: '#f0f9ff', paddingVertical: 7, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#bae6fd' },
-  editBtnText: { color: '#0284c7', fontWeight: '700' },
-  deleteBtn: { flex: 1, backgroundColor: '#fff1f2', paddingVertical: 7, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#fecdd3' },
-  deleteBtnText: { color: '#e11d48', fontWeight: '700' },
-  emptyText: { textAlign: 'center', marginTop: 60, color: '#94a3b8', fontWeight: '600' },
+
+  eventCardInner: {
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  cardImage: {
+    height: 120,
+    backgroundColor: '#E9FDE0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cardIcon: {
+    fontSize: 42,
+  },
+
+  cardContent: {
+    padding: 16,
+  },
+
+  categoryPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E9FDE0',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+  },
+
+  categoryText: {
+    color: '#004800',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+
+  cardTopInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+  },
+
+  creatorPill: {
+    backgroundColor: '#E9FDE0',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    flexShrink: 1,
+  },
+
+  creatorText: {
+    color: '#004800',
+    fontSize: 12,
+  },
+
+  creatorBold: {
+    fontWeight: '800',
+  },
+
+  eventTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#0f172a',
+    marginBottom: 10,
+  },
+
+  eventInfo: {
+    fontSize: 13,
+    color: '#475569',
+    marginBottom: 4,
+  },
+
+  eventLocation: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 14,
+  },
+
+  detailButton: {
+    backgroundColor: '#2a7326',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  detailButtonText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  emptyText: {
+    width: '100%',
+    textAlign: 'center',
+    marginTop: 40,
+    color: '#94a3b8',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
   fab: {
-    position: 'absolute', right: 20, bottom: 20, width: 54, height: 54, borderRadius: 27,
-    backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+    position: 'absolute',
+    right: 26,
+    bottom: 26,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  fabText: { color: '#fff', fontSize: 30, marginTop: -2 },
+
+  fabText: {
+    color: '#ffffff',
+    fontSize: 34,
+    marginTop: -3,
+  },
+
+  successPopup: {
+    position: 'absolute',
+    right: 82,
+    bottom: 72,
+    maxWidth: 240,
+    backgroundColor: '#2a7326',
+    borderWidth: 2,
+    borderColor: '#CEFCBA',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 25,
+    zIndex: 9999,
+  },
+
+  successPopupText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+
+  buttonPressed: {
+  transform: [{ scale: 0.9 }],
+  opacity: 0.7,
+},
+
+  buttonHover: {
+    transform: [{ scale: 1.04 }],
+    backgroundColor: '#DDFCD1',
+  },
+
+  darkButtonHover: {
+    transform: [{ scale: 1.04 }],
+    backgroundColor: '#1f5f1d',
+  },
+
+  fabHover: {
+    transform: [{ scale: 1.08 }],
+    backgroundColor: '#16a34a',
+  },
+
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    zIndex: 99999,
+  },
 });

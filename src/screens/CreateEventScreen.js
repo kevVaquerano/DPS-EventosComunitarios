@@ -1,230 +1,555 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, TextInput, TouchableOpacity,
-  View, ScrollView, Alert, KeyboardAvoidingView, Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  Alert,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../api/firebase';
-import { useResponsive } from '../utils/responsive';
+import { CalendarDays, Clock } from 'lucide-react-native';
 
-const CATEGORIES = ['Comunidad', 'Deportes', 'Educación', 'Cultura', 'Voluntariado'];
+if (Platform.OS === 'web') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      display: none;
+      -webkit-appearance: none;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
-const MONTHS_ES = [
-  'enero','febrero','marzo','abril','mayo','junio',
-  'julio','agosto','septiembre','octubre','noviembre','diciembre',
+const CATEGORIES = [
+  'Comunidad',
+  'Deportes',
+  'Educación',
+  'Salud',
+  'Cultura',
+  'Música',
+  'MedioAmbiente',
+  'Tecnología',
+  'Emprendimiento',
+  'Voluntariado',
 ];
 
-// Convierte "2026-06-15" a "15 de junio, 2026" para mostrarlo al usuario
-function formatDateDisplay(iso) {
-  const parts = iso.split('-');
-  if (parts.length !== 3) return iso;
-  const [year, month, day] = parts;
-  const m = parseInt(month, 10);
-  if (m < 1 || m > 12) return iso;
-  return `${parseInt(day, 10)} de ${MONTHS_ES[m - 1]}, ${year}`;
-}
+export default function CreateEventScreen({ onClose, onCreated, createdBy }) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 650;
 
-// Se guarda como timestamp Unix (ms) para poder ordenar y filtrar en Firestore
-function parseDateTimestamp(iso) {
-  const d = new Date(iso + 'T00:00:00');
-  return isNaN(d.getTime()) ? null : d.getTime();
-}
+  const today = new Date().toISOString().split('T')[0];
 
-export default function CreateEventScreen({ navigation, route }) {
-  // Si se pasa un evento por params, es modo edición
-  const editingEvent = route.params?.event || null;
-  const { isMobile, hPad, fs, sp } = useResponsive();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Comunidad');
+  const [showCategories, setShowCategories] = useState(false);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+  const [time, setTime] = useState('');
+  const [location, setLocation] = useState('');
 
-  const [title, setTitle]             = useState(editingEvent?.title || '');
-  const [dateISO, setDateISO]         = useState(editingEvent?.dateISO || '');
-  const [time, setTime]               = useState(editingEvent?.time || '');
-  const [location, setLocation]       = useState(editingEvent?.location || '');
-  const [description, setDescription] = useState(editingEvent?.description || '');
-  const [category, setCategory]       = useState(editingEvent?.category || 'Comunidad');
-  const [loading, setLoading]         = useState(false);
+  const handleStartDate = (value) => {
+    setStartDate(value);
 
-  const validateDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v);
-
-  const handleSave = async () => {
-    if (!title || !dateISO || !time || !location || !description) {
-      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos.');
-      return;
-    }
-    if (!validateDate(dateISO)) {
-      Alert.alert('Fecha inválida', 'Usa el formato AAAA-MM-DD. Ejemplo: 2026-06-15');
-      return;
-    }
-
-    const dateTimestamp = parseDateTimestamp(dateISO);
-    const dateDisplay   = formatDateDisplay(dateISO);
-
-    setLoading(true);
-    try {
-      if (editingEvent) {
-        // En edición se actualiza solo los campos editables; createdBy y attendees se mantienen
-        await updateDoc(doc(db, 'events', editingEvent.id), {
-          title, date: dateDisplay, dateISO, dateTimestamp, time, location, description, category,
-          updatedAt: serverTimestamp(),
-        });
-        Alert.alert('¡Actualizado!', 'El evento fue actualizado correctamente.', [
-          { text: 'Aceptar', onPress: () => navigation.goBack() },
-        ]);
-      } else {
-        await addDoc(collection(db, 'events'), {
-          title, date: dateDisplay, dateISO, dateTimestamp, time, location, description, category,
-          createdBy: auth.currentUser?.uid || 'anon',
-          attendees: [],
-          createdAt: serverTimestamp(),
-        });
-        Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
-          { text: 'Aceptar', onPress: () => navigation.navigate('Home') },
-        ]);
-      }
-    } catch {
-      Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
-    } finally {
-      setLoading(false);
+    if (endDate < value) {
+      setEndDate(value);
     }
   };
 
+  const handleCreateEvent = () => {
+    if (!title || !description || !category || !startDate || !endDate || !time || !location) {
+      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos.');
+      return;
+    }
+
+    if (startDate < today || endDate < today) {
+      Alert.alert('Fecha inválida', 'Las fechas no pueden ser anteriores a la fecha actual.');
+      return;
+    }
+
+    if (endDate < startDate) {
+      Alert.alert('Fecha inválida', 'La fecha de fin no puede ser anterior a la fecha de inicio.');
+      return;
+    }
+
+    console.log({
+      title,
+      description,
+      category,
+      createdBy,
+      startDate,
+      endDate,
+      time,
+      location,
+    });
+
+    onCreated();
+  };
+
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad, paddingVertical: sp.lg }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.formCard}>
-          <Text style={[styles.headerTitle, { fontSize: fs.xl }]}>
-            {editingEvent ? 'Editar Evento' : 'Nuevo Evento'}
-          </Text>
-          <Text style={[styles.subtitle, { fontSize: fs.sm }]}>
-            Completa la información para tu comunidad
-          </Text>
+    <View style={styles.wrapper}>
+      <View style={[styles.card, isMobile && styles.cardMobile]}>
 
-          <Text style={[styles.label, { fontSize: fs.sm }]}>Nombre del Evento</Text>
-          <TextInput
-            style={[styles.input, { fontSize: fs.md }]}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Ej: Campaña de Limpieza"
-          />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Crear Evento</Text>
 
-          {/* En mobile los campos de fecha y hora se apilan para no quedar muy angostos */}
-          <View style={[styles.row, isMobile && styles.rowMobile]}>
-            <View style={[styles.rowItem, !isMobile && { marginRight: 12 }]}>
-              <Text style={[styles.label, { fontSize: fs.sm }]}>Fecha (AAAA-MM-DD)</Text>
-              <TextInput
-                style={[styles.input, { fontSize: fs.md }]}
-                value={dateISO}
-                onChangeText={setDateISO}
-                placeholder="2026-06-15"
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            </View>
-            <View style={styles.rowItem}>
-              <Text style={[styles.label, { fontSize: fs.sm }]}>Hora</Text>
-              <TextInput
-                style={[styles.input, { fontSize: fs.md }]}
-                value={time}
-                onChangeText={setTime}
-                placeholder="09:00 AM"
-              />
-            </View>
-          </View>
-
-          {/* Vista previa de la fecha en formato legible mientras el usuario escribe */}
-          {dateISO.length === 10 && validateDate(dateISO) && (
-            <Text style={[styles.datePreview, { fontSize: fs.xs }]}>
-              📅 {formatDateDisplay(dateISO)}
-            </Text>
-          )}
-
-          <Text style={[styles.label, { fontSize: fs.sm }]}>Ubicación</Text>
-          <TextInput
-            style={[styles.input, { fontSize: fs.md }]}
-            value={location}
-            onChangeText={setLocation}
-            placeholder="Ej: Parque Central"
-          />
-
-          <Text style={[styles.label, { fontSize: fs.sm }]}>Categoría</Text>
-          <View style={styles.categoryRow}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.chip, category === cat && styles.chipActive]}
-                onPress={() => setCategory(cat)}
-              >
-                <Text style={[styles.chipText, { fontSize: fs.xs }, category === cat && styles.chipTextActive]}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={[styles.label, { fontSize: fs.sm }]}>Descripción</Text>
-          <TextInput
-            style={[styles.input, styles.textArea, { fontSize: fs.md }]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="¿De qué trata el evento?"
-            multiline
-            numberOfLines={4}
-          />
-
-          <TouchableOpacity
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            <Text style={[styles.saveBtnText, { fontSize: fs.md }]}>
-              {loading ? 'Guardando...' : editingEvent ? 'Actualizar Evento' : 'Publicar Evento'}
-            </Text>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeText}>×</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.form}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+        >
+          <Text style={styles.label}>Nombre del evento:</Text>
+          <TextInput
+            style={styles.input}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Ej: Campaña de reciclaje"
+            placeholderTextColor="#94a3b8"
+          />
+
+          <Text style={styles.label}>Descripción:</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe brevemente el evento"
+            placeholderTextColor="#94a3b8"
+            multiline
+          />
+
+          <View style={[styles.row, isMobile && styles.rowMobile]}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Categoría:</Text>
+
+              <View style={styles.dropdownWrapper}>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setShowCategories(!showCategories)}
+                >
+                  <Text style={styles.dropdownText}>{category}</Text>
+                  <Text style={styles.dropdownArrow}>
+                    {showCategories ? '▲' : '▼'}
+                  </Text>
+                </TouchableOpacity>
+
+                {showCategories && (
+                  <View style={styles.dropdownMenu}>
+                    {CATEGORIES.map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          setCategory(item);
+                          setShowCategories(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownOptionText}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Creado por:</Text>
+              <TextInput
+                style={[styles.input, styles.disabledInput]}
+                value={createdBy}
+                editable={false}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.row, isMobile && styles.rowMobile]}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Fecha de inicio:</Text>
+
+              {Platform.OS === 'web' ? (
+                <View style={styles.webPickerBox}>
+                  <input
+                    type="date"
+                    min={today}
+                    value={startDate}
+                    onChange={(e) => handleStartDate(e.target.value)}
+                    style={webInput}
+                  />
+
+                  <View style={styles.webPickerIconBox}>
+                   <CalendarDays size={22} color="#307A00" />
+                  </View>
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  value={startDate}
+                  onChangeText={handleStartDate}
+                  placeholder="YYYY-MM-DD"
+                  keyboardType="numeric"
+                />
+              )}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Fecha de fin:</Text>
+
+              {Platform.OS === 'web' ? (
+                <View style={styles.webPickerBox}>
+                  <input
+                    type="date"
+                    min={startDate || today}
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={webInput}
+                  />
+
+                  <View style={styles.webPickerIconBox}>
+                    <CalendarDays size={22} color="#307A00" />
+                  </View>
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  value={endDate}
+                  onChangeText={setEndDate}
+                  placeholder="YYYY-MM-DD"
+                  keyboardType="numeric"
+                />
+              )}
+            </View>
+          </View>
+
+          <View style={[styles.row, isMobile && styles.rowMobile]}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Hora:</Text>
+
+              {Platform.OS === 'web' ? (
+                <View style={styles.webPickerBox}>
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    style={webInput}
+                  />
+
+                  <View style={styles.webPickerIconBox}>
+                    <Clock size={22} color="#307A00" />
+                  </View>
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  value={time}
+                  onChangeText={setTime}
+                  placeholder="08:00"
+                  placeholderTextColor="#94a3b8"
+                />
+              )}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Lugar:</Text>
+              <TextInput
+                style={styles.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholder="Ej: Parque Central"
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.footer, isMobile && styles.footerMobile]}>
+          <TouchableOpacity
+            style={[styles.acceptButton, isMobile && styles.fullButton]}
+            onPress={handleCreateEvent}
+          >
+            <Text style={styles.acceptText}>Aceptar</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.cancelButton, isMobile && styles.fullButton]}
+            onPress={onClose}
+          >
+            <Text style={styles.cancelText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+
+      </View>
+    </View>
   );
 }
 
+const webInput = {
+  flex: 1,
+  height: 48,
+  boxSizing: 'border-box',
+  paddingLeft: 14,
+  paddingRight: 10,
+  fontSize: 14,
+  color: '#0f172a',
+  backgroundColor: 'transparent',
+  border: 'none',
+  outline: 'none',
+  cursor: 'pointer',
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+};
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f5f7fb' },
-  scroll: { flexGrow: 1, alignItems: 'center' },
-  formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+  wrapper: {
     width: '100%',
-    maxWidth: 640,
-    elevation: 3,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  webPickerBox: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    backgroundColor: '#F4FEEF',
+    marginBottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+
+  webPickerIconBox: {
+    width: 50,
+    height: '100%',
+    borderLeftWidth: 1,
+    borderLeftColor: '#307A00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  card: {
+    width: '100%',
+    maxWidth: 720,
+    height: '92%',
+    backgroundColor: '#ffffff',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowRadius: 16,
+    elevation: 4,
+    overflow: 'hidden',
   },
-  headerTitle: { fontWeight: 'bold', color: '#0f172a' },
-  subtitle: { color: '#64748b', marginBottom: 24, marginTop: 4 },
-  label: { fontWeight: '600', color: '#444', marginBottom: 8 },
+
+  cardMobile: {
+    borderRadius: 22,
+    height: '95%',
+  },
+
+  header: {
+    minHeight: 72,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1f2937',
+  },
+
+  closeButton: {
+    position: 'absolute',
+    right: 18,
+    top: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  closeText: {
+    fontSize: 28,
+    color: '#94a3b8',
+    marginTop: -2,
+  },
+
+  body: {
+    flex: 1,
+  },
+
+  form: {
+    padding: 28,
+    paddingBottom: 35,
+  },
+
+  label: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#334155',
+    marginBottom: 8,
+  },
+
   input: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 12, marginBottom: 18, backgroundColor: '#fcfcfc', color: '#0f172a',
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#F4FEEF',
+    marginBottom: 18,
+    outlineStyle: 'none',
   },
-  row: { flexDirection: 'row' },
-  rowMobile: { flexDirection: 'column' },
-  rowItem: { flex: 1 },
-  datePreview: { color: '#2E8B57', fontWeight: '600', marginBottom: 14, marginTop: -10 },
-  textArea: { height: 100, textAlignVertical: 'top' },
-  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
-  chip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f8f9fa' },
-  chipActive: { backgroundColor: '#2ecc71', borderColor: '#2ecc71' },
-  chipText: { color: '#555' },
-  chipTextActive: { color: '#fff', fontWeight: '700' },
-  saveBtn: { backgroundColor: '#2ecc71', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  saveBtnDisabled: { backgroundColor: '#a0d8b3' },
-  saveBtnText: { color: '#fff', fontWeight: 'bold' },
+
+  disabledInput: {
+    color: '#64748b',
+    backgroundColor: '#D6E7CF',
+  },
+
+  textArea: {
+    height: 96,
+    paddingTop: 12,
+    textAlignVertical: 'top',
+  },
+
+  row: {
+    flexDirection: 'row',
+    gap: 38,
+  },
+
+  rowMobile: {
+    flexDirection: 'column',
+    gap: 0,
+  },
+
+  field: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  dropdownWrapper: {
+    position: 'relative',
+    zIndex: 9999,
+    marginBottom: 18,
+  },
+
+  dropdownButton: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    backgroundColor: '#F4FEEF',
+    paddingLeft: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  dropdownText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+
+  dropdownArrow: {
+    height: 48,
+    width: 46,
+    textAlign: 'center',
+    lineHeight: 48,
+    borderLeftWidth: 1,
+    borderLeftColor: '#307A00',
+    fontSize: 20,
+    color: '#307A00',
+  },
+
+  dropdownMenu: {
+    position: 'absolute',
+    top: 54,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#307A00',
+    overflow: 'hidden',
+    zIndex: 99999,
+    elevation: 20,
+  },
+
+  dropdownOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+
+  dropdownOptionText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+
+  footer: {
+    minHeight: 88,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    padding: 22,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    backgroundColor: '#ffffff',
+  },
+
+  footerMobile: {
+    flexDirection: 'column-reverse',
+    gap: 12,
+    minHeight: 130,
+  },
+
+  cancelButton: {
+    width: 180,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  acceptButton: {
+    width: 180,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#2a7326',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  fullButton: {
+    width: '100%',
+  },
+
+  cancelText: {
+    color: '#334155',
+    fontWeight: '800',
+  },
+
+  acceptText: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
 });
