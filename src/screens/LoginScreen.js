@@ -8,7 +8,6 @@ import {
   Alert,
   Image,
   ScrollView,
-  useWindowDimensions,
   Platform,
 } from 'react-native';
 
@@ -22,8 +21,6 @@ import { auth } from '../api/firebase';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  const { height } = useWindowDimensions();
 
   const showMessage = (title, message) => {
     if (Platform.OS === 'web') {
@@ -66,7 +63,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { height: height - 75 }]}>
+    <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContainer}
@@ -143,6 +140,7 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#F4F9F4',
   },
 
