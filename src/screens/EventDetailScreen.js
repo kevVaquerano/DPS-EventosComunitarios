@@ -259,7 +259,7 @@ export default function EventDetailScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f5f7fb', minHeight: Platform.OS === 'web' ? '100vh' : undefined },
-  scrollView: { flex: 1, overflow: Platform.OS === 'web' ? 'scroll' : 'visible' },
+  scrollView: { flex: 1, maxHeight: Platform.OS === 'web' ? '100vh' : undefined, overflow: Platform.OS === 'web' ? 'scroll' : 'visible' },
   scroll: { flexGrow: 1, alignItems: 'center' },
   innerContent: { width: '100%', maxWidth: 720 },
   card: {
