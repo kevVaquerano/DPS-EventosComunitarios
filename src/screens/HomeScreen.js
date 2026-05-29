@@ -200,8 +200,17 @@ export default function HomeScreen({ navigation }) {
                 <AnimatedPressable
                   style={styles.notificationButton}
                   hoverStyle={styles.buttonHover}
+                  onPress={() => navigation.navigate('History')}
                 >
-                  <Text style={styles.notificationText}>🔔</Text>
+                  <Text style={styles.notificationText}>📋</Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  style={styles.notificationButton}
+                  hoverStyle={styles.buttonHover}
+                  onPress={() => navigation.navigate('Stats')}
+                >
+                  <Text style={styles.notificationText}>📊</Text>
                 </AnimatedPressable>
 
                 <AnimatedPressable
@@ -231,8 +240,17 @@ export default function HomeScreen({ navigation }) {
                 <AnimatedPressable
                   style={styles.notificationButton}
                   hoverStyle={styles.buttonHover}
+                  onPress={() => navigation.navigate('History')}
                 >
-                  <Text style={styles.notificationText}>🔔</Text>
+                  <Text style={styles.notificationText}>📋</Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  style={styles.notificationButton}
+                  hoverStyle={styles.buttonHover}
+                  onPress={() => navigation.navigate('Stats')}
+                >
+                  <Text style={styles.notificationText}>📊</Text>
                 </AnimatedPressable>
 
                 <AnimatedPressable
