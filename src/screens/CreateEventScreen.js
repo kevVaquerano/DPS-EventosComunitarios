@@ -50,13 +50,19 @@ function formatDateDisplay(iso) {
   return `${parseInt(day, 10)} de ${MONTHS_ES[m - 1]}, ${year}`;
 }
 
-export default function CreateEventScreen({ navigation }) {
+// Soporta dos modos: modal inline (onClose/onCreated) y pantalla de navegación (navigation)
+export default function CreateEventScreen({ navigation, onClose, onCreated, createdBy: createdByProp }) {
   const { width } = useWindowDimensions();
   const isMobile = width < 650;
 
   const today = new Date().toISOString().split('T')[0];
   const currentUser = auth.currentUser;
-  const createdBy = currentUser?.displayName || currentUser?.email || 'Usuario';
+  const createdBy = createdByProp || currentUser?.displayName || currentUser?.email || 'Usuario';
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    else if (navigation) handleClose();
+  };
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -103,9 +109,13 @@ export default function CreateEventScreen({ navigation }) {
         attendees: [],
         createdAt: serverTimestamp(),
       });
-      Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
-        { text: 'Aceptar', onPress: () => navigation.navigate('Home') },
-      ]);
+      if (onCreated) {
+        onCreated();
+      } else {
+        Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
+          { text: 'Aceptar', onPress: () => navigation?.navigate('Home') },
+        ]);
+      }
     } catch {
       Alert.alert('Error', 'No se pudo guardar el evento. Intenta de nuevo.');
     } finally {
@@ -120,7 +130,7 @@ export default function CreateEventScreen({ navigation }) {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Crear Evento</Text>
 
-          <TouchableOpacity style={styles.closeButton} onPress={navigation.goBack}>
+          <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeText}>×</Text>
           </TouchableOpacity>
         </View>
@@ -304,7 +314,7 @@ export default function CreateEventScreen({ navigation }) {
           
           <TouchableOpacity
             style={[styles.cancelButton, isMobile && styles.fullButton]}
-            onPress={navigation.goBack}
+            onPress={handleClose}
           >
             <Text style={styles.cancelText}>Cancelar</Text>
           </TouchableOpacity>
