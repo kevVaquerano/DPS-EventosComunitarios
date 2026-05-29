@@ -370,7 +370,11 @@ export default function HomeScreen({ navigation }) {
                       <View style={styles.cardTopInfo}>
                         <View style={styles.creatorPill}>
                           <Text style={styles.creatorText}>
-                            <Text style={styles.creatorBold}>Creado por:</Text> {item.createdBy || 'Usuario'}
+                            <Text style={styles.creatorBold}>Creado por:</Text> {
+                              !item.createdBy || item.createdBy === 'anon' || (item.createdBy.length > 20 && !item.createdBy.includes(' ') && !item.createdBy.includes('@'))
+                                ? 'Usuario'
+                                : item.createdBy
+                            }
                           </Text>
                         </View>
                         <View style={styles.categoryPill}>

@@ -142,7 +142,11 @@ export default function EventDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad, paddingVertical: 20 }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad, paddingVertical: 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.innerContent}>
 
           <View style={styles.card}>
@@ -254,7 +258,8 @@ export default function EventDetailScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f5f7fb' },
+  root: { flex: 1, backgroundColor: '#f5f7fb', minHeight: Platform.OS === 'web' ? '100vh' : undefined },
+  scrollView: { flex: 1, overflow: Platform.OS === 'web' ? 'scroll' : 'visible' },
   scroll: { flexGrow: 1, alignItems: 'center' },
   innerContent: { width: '100%', maxWidth: 720 },
   card: {
