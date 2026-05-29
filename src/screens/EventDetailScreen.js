@@ -52,6 +52,17 @@ export default function EventDetailScreen({ route, navigation }) {
   const [commentsList, setCommentsList] = useState([]);
   const [attendees, setAttendees]       = useState(event.attendees || []);
   const [submitting, setSubmitting]     = useState(false);
+  const [toast, setToast]               = useState({ visible: false, message: '', type: 'success' });
+
+  const showMsg = (title, msg, type = 'info') => {
+    if (Platform.OS !== 'web') {
+      Alert.alert(title, msg);
+    } else {
+      const text = msg ? `${title}: ${msg}` : title;
+      setToast({ visible: true, message: text, type });
+      setTimeout(() => setToast(t => ({ ...t, visible: false })), 3000);
+    }
+  };
 
   const currentUser = auth.currentUser;
   const isAttending = currentUser && attendees.includes(currentUser.uid);
@@ -77,7 +88,7 @@ export default function EventDetailScreen({ route, navigation }) {
       await deleteDoc(eventRef);
       navigation.goBack();
     } catch {
-      Alert.alert('Error', 'No se pudo eliminar el evento.');
+      showMsg('Error', 'No se pudo eliminar el evento.', 'error');
     }
   };
 
@@ -100,20 +111,21 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
-    if (!currentUser) { Alert.alert('Inicia sesión', 'Debes iniciar sesión para comentar.'); return; }
+    if (!currentUser) { showMsg('Inicia sesión', 'Debes iniciar sesión para comentar.', 'error'); return; }
     setSubmitting(true);
     try {
       await addDoc(collection(db, 'events', event.id, 'comments'), {
         user: currentUser.displayName || currentUser.email || 'Usuario',
-        userId: currentUser.uid, // se guarda para poder verificar autoría al mostrar el botón de eliminar
+        userId: currentUser.uid,
         text: comment.trim(),
         rating,
         createdAt: serverTimestamp(),
       });
       setComment('');
       setRating(0);
+      showMsg('✅ Comentario publicado', '', 'success');
     } catch {
-      Alert.alert('Error', 'No se pudo enviar el comentario.');
+      showMsg('Error', 'No se pudo enviar el comentario.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -129,27 +141,26 @@ export default function EventDetailScreen({ route, navigation }) {
           ])
         );
     if (!confirmed) return;
-    try { await deleteDoc(doc(db, 'events', event.id, 'comments', commentId)); }
-    catch { Alert.alert('Error', 'No se pudo eliminar el comentario.'); }
+    try {
+      await deleteDoc(doc(db, 'events', event.id, 'comments', commentId));
+      showMsg('🗑️ Comentario eliminado', '', 'info');
+    } catch { showMsg('Error', 'No se pudo eliminar el comentario.', 'error'); }
   };
 
   const handleRSVP = async () => {
-    if (!currentUser) { Alert.alert('Inicia sesión', 'Debes iniciar sesión para confirmar asistencia.'); return; }
+    if (!currentUser) { showMsg('Inicia sesión', 'Debes iniciar sesión para confirmar asistencia.', 'error'); return; }
     try {
       if (isAttending) {
         // arrayRemove es atómico en Firestore, evita condiciones de carrera en escrituras concurrentes
         await updateDoc(eventRef, { attendees: arrayRemove(currentUser.uid) });
-        Alert.alert('Cancelado', 'Has cancelado tu asistencia.');
+        showMsg('Cancelado', 'Has cancelado tu asistencia.', 'info');
       } else {
         await updateDoc(eventRef, { attendees: arrayUnion(currentUser.uid) });
         await scheduleEventNotification(event);
-        Alert.alert(
-          '¡Asistencia confirmada! 🎉',
-          `Registrado en "${event.title}".\n📅 ${event.date} — ⏰ ${event.time}\n📍 ${event.location}\n\n¡Recibirás un recordatorio!`
-        );
+        showMsg('¡Asistencia confirmada! 🎉', `Registrado en "${event.title}". ¡Recibirás un recordatorio!`, 'success');
       }
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar tu asistencia.');
+      showMsg('Error', 'No se pudo actualizar tu asistencia.', 'error');
     }
   };
 
@@ -161,7 +172,7 @@ export default function EventDetailScreen({ route, navigation }) {
         if (navigator.share) await navigator.share({ title: event.title, text: message });
         else {
           await navigator.clipboard.writeText(message);
-          Alert.alert('Copiado', 'Información del evento copiada al portapapeles.');
+          showMsg('📋 Copiado', 'Información del evento copiada al portapapeles.', 'success');
         }
       } else {
         await Share.share({ message });
@@ -297,6 +308,12 @@ export default function EventDetailScreen({ route, navigation }) {
 
         </View>
       </ScrollView>
+
+      {toast.visible && (
+        <View style={[styles.toast, toast.type === 'success' && styles.toastSuccess, toast.type === 'error' && styles.toastError]}>
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -345,6 +362,15 @@ const styles = StyleSheet.create({
   commentRating: { color: '#FFD700' },
   deleteIcon: { fontSize: 16, paddingHorizontal: 4 },
   commentText: { color: '#555' },
+  toast: {
+    position: 'absolute', bottom: 30, left: 20, right: 20,
+    backgroundColor: '#334155', borderRadius: 14, padding: 14,
+    alignItems: 'center', elevation: 10, zIndex: 9999,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8,
+  },
+  toastSuccess: { backgroundColor: '#16a34a' },
+  toastError:   { backgroundColor: '#dc2626' },
+  toastText:    { color: '#fff', fontWeight: '700', textAlign: 'center' },
   backBtn: { backgroundColor: '#1E90FF', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 10 },
   backBtnText: { color: '#fff', fontWeight: 'bold' },
   ownerActions: { flexDirection: 'row', gap: 10, marginBottom: 14 },
