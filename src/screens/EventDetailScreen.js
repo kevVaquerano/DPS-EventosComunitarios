@@ -94,14 +94,18 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
-  const handleDeleteComment = (commentId) => {
-    Alert.alert('Eliminar', '¿Eliminar tu comentario?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try { await deleteDoc(doc(db, 'events', event.id, 'comments', commentId)); }
-        catch { Alert.alert('Error', 'No se pudo eliminar el comentario.'); }
-      }},
-    ]);
+  const handleDeleteComment = async (commentId) => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('¿Eliminar tu comentario?')
+      : await new Promise((resolve) =>
+          Alert.alert('Eliminar', '¿Eliminar tu comentario?', [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+          ])
+        );
+    if (!confirmed) return;
+    try { await deleteDoc(doc(db, 'events', event.id, 'comments', commentId)); }
+    catch { Alert.alert('Error', 'No se pudo eliminar el comentario.'); }
   };
 
   const handleRSVP = async () => {
