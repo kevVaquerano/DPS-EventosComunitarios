@@ -172,7 +172,14 @@ export default function CreateEventScreen({ navigation, route, onClose, onCreate
             multiline
           />
 
-          <View style={[styles.row, isMobile && styles.rowMobile]}>
+        <View 
+          style={[
+            styles.row, 
+            isMobile && styles.rowMobile, 
+            // Eleva la fila al primer plano solo cuando el desplegable está abierto
+            { zIndex: showCategories ? 1000 : 1, elevation: showCategories ? 5 : 0 }
+          ]}
+        >
             <View style={styles.field}>
               <Text style={styles.label}>Categoría:</Text>
 
