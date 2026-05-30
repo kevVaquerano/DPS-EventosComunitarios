@@ -1,3 +1,7 @@
 # DPS-EventosComunitarios
 
-SegundoProyectoDPS-Grupo#15.pdf
+Proyecto de eventos comunitarios.
+
+## Documentación
+
+📄 [Ver PDF del proyecto](./SegundoProyectoDPS-Grupo%2315.pdf)
