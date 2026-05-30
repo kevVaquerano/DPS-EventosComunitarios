@@ -15,11 +15,13 @@ import {
   Animated,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
+// Importaciones clave de Firestore para consultar y escuchar colecciones reactivamente
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { auth, db } from '../api/firebase';
 import { useRoute } from '@react-navigation/native';
-import CreateEventScreen from './CreateEventScreen';
+import CreateEventScreen from './CreateEventScreen'; // Pantalla interna reutilizada como Modal contextual
 
+// Filtros estáticos para la clasificación cronológica de las actividades
 const TIME_FILTERS = [
   'Todos',
   'Esta semana',
@@ -30,6 +32,7 @@ const TIME_FILTERS = [
   'Tiempo atrás',
 ];
 
+// Diccionario de emojis asignados por clave-valor a cada categoría comunitaria
 const CATEGORY_EMOJIS = {
   Comunidad: '🤝',
   Deportes: '⚽',
@@ -43,6 +46,7 @@ const CATEGORY_EMOJIS = {
   Voluntariado: '🙋',
 };
 
+// Catálogo estático para el filtrado por categorías de la interfaz
 const CATEGORY_FILTERS = [
   'Todas',
   'Comunidad',
@@ -58,6 +62,7 @@ const CATEGORY_FILTERS = [
 ];
 
 export default function HomeScreen({ navigation }) {
+  // Inicialización de estados locales para la lista, búsquedas, filtros y visibilidad de modales
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState('');
   const [timeFilter, setTimeFilter] = useState('Todos');
@@ -68,55 +73,101 @@ export default function HomeScreen({ navigation }) {
 
   const currentUser = auth.currentUser;
 
+  // Parsea la autoría del usuario firmado: Nombre completo -> Prefijo del Email -> Fallback seguro
   const userName =
     currentUser?.displayName ||
     currentUser?.email?.split('@')[0] ||
     'Usuario';
 
+  // Sistema reactivo para capturar las dimensiones del viewport actual (Web / Mobile)
   const { width } = useWindowDimensions();
 
+  // Variables de diseño lógico: Determina layouts móviles y el número de columnas para el Grid responsivo
   const isMobile = width < 650;
   const columns = width >= 1000 ? 3 : width >= 700 ? 2 : 1;
 
+  /**
+   * Cierra de forma segura la sesión activa en el proveedor Firebase Auth
+   */
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      navigation.replace('Login');
+      navigation.replace('Login'); // Destruye el historial de rutas y redirige al Login
     } catch (error) {
       Alert.alert('Error', 'No se pudo cerrar la sesión.');
     }
   };
 
+  /**
+   * MEMOIZED FILTER: Filtra los eventos en memoria local de forma ultra optimizada.
+   * Evita re-cálculos costosos si los estados de búsqueda o filtros no han cambiado.
+   */
   const filteredEvents = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+
     return events.filter((event) => {
+      // 1. Filtrado por barra de búsqueda por coincidencia de texto en minúsculas
       const text = `${event.title} ${event.location} ${event.category}`.toLowerCase();
       const matchesSearch = text.includes(search.toLowerCase());
 
+      // 2. Filtrado lógico por categorías
       const matchesCategory =
         categoryFilter === 'Todas' || event.category === categoryFilter;
 
-      const matchesTime =
-        timeFilter === 'Todos' ||
-        event.date.includes('Mayo') ||
-        event.date.includes('Junio');
+      // 3. Filtrado temporal real basado en el timestamp del evento
+      const ts = event.dateTimestamp || 0;
+      let matchesTime = true;
+
+      if (timeFilter === 'Esta semana') {
+        // Eventos desde hoy hasta 7 días en el futuro
+        matchesTime = ts >= startOfToday && ts <= startOfToday + oneWeekMs;
+      } else if (timeFilter === 'Semana anterior') {
+        // Eventos que ocurrieron en los últimos 7 días
+        matchesTime = ts >= startOfToday - oneWeekMs && ts < startOfToday;
+      } else if (timeFilter === 'Este mes') {
+        // Eventos dentro del mes calendario actual
+        const eventDate = new Date(ts);
+        matchesTime = eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
+      } else if (timeFilter === 'Hace seis meses') {
+        // Eventos pasados en los últimos 6 meses
+        const sixMonthsAgo = new Date(now);
+        sixMonthsAgo.setMonth(now.getMonth() - 6);
+        matchesTime = ts >= sixMonthsAgo.getTime() && ts < startOfToday;
+      } else if (timeFilter === 'Un año') {
+        // Eventos pasados en el último año
+        const oneYearAgo = new Date(now);
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        matchesTime = ts >= oneYearAgo.getTime() && ts < startOfToday;
+      } else if (timeFilter === 'Tiempo atrás') {
+        // Eventos con más de un año de antigüedad
+        const oneYearAgo = new Date(now);
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        matchesTime = ts < oneYearAgo.getTime();
+      }
 
       return matchesSearch && matchesCategory && matchesTime;
     });
   }, [events, search, categoryFilter, timeFilter]);
 
+  /**
+   * Componente UI Interno Reutilizable: Botón interactivo con estados de Hover (Web) y Pressed (Móvil)
+   */
   const AnimatedPressable = ({ children, style, hoverStyle, onPress }) => (
     <Pressable
       onPress={onPress}
       style={({ pressed, hovered }) => [
         style,
-        hovered && hoverStyle,
-        pressed && styles.buttonPressed,
+        hoverStyle && hovered && hoverStyle,
+        pressed && styles.buttonPressed, // Efecto nativo de escala al presionar
       ]}
     >
       {children}
     </Pressable>
   );
 
+  // EFFECT: Suscripción en tiempo real a toda la colección de 'events' ordenada por fecha de creación
   useEffect(() => {
     const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snap) => {
@@ -127,19 +178,22 @@ export default function HomeScreen({ navigation }) {
   const route = useRoute();
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Referencias mutables para el motor de animaciones nativas de React Native
   const popupScale = useRef(new Animated.Value(0)).current;
   const popupOpacity = useRef(new Animated.Value(0)).current;
 
+  // EFFECT: Dispara una coreografía de animaciones tipo "Toast Popup" si se detecta un evento creado exitosamente
   useEffect(() => {
     if (route.params?.eventCreated) {
       setShowSuccess(true);
 
+      // Animación en paralelo: Escala el tamaño con efecto resorte (Spring) y realiza el desvanecimiento (FadeIn)
       Animated.parallel([
         Animated.spring(popupScale, {
           toValue: 1,
           friction: 4,
           tension: 90,
-          useNativeDriver: true,
+          useNativeDriver: true, // Optimización nativa por hardware
         }),
         Animated.timing(popupOpacity, {
           toValue: 1,
@@ -148,6 +202,7 @@ export default function HomeScreen({ navigation }) {
         }),
       ]).start();
 
+      // Temporizador automático de desvanecimiento tras 2.2 segundos en pantalla
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(popupScale, {
@@ -162,7 +217,7 @@ export default function HomeScreen({ navigation }) {
           }),
         ]).start(() => {
           setShowSuccess(false);
-          navigation.setParams({ eventCreated: false });
+          navigation.setParams({ eventCreated: false }); // Limpia los parámetros de navegación de forma segura
         });
       }, 2200);
     }
@@ -179,9 +234,11 @@ export default function HomeScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ENCABEZADO MULTIPLATAFORMA (Renderiza Layout Mobile o Desktop según el viewport) */}
         <View style={[styles.header, isMobile && styles.headerMobile]}>
           {isMobile ? (
             <>
+              {/* Layout para Dispositivos Móviles */}
               <View style={styles.headerTopMobile}>
                 <View style={styles.headerTextBoxMobile}>
                   <Text style={styles.welcomeText}>¡Hola, {userName}!</Text>
@@ -196,6 +253,7 @@ export default function HomeScreen({ navigation }) {
                 />
               </View>
 
+              {/* Botones de navegación interna para la barra móvil */}
               <View style={styles.headerActionsMobile}>
                 <AnimatedPressable
                   style={styles.notificationButton}
@@ -224,6 +282,7 @@ export default function HomeScreen({ navigation }) {
             </>
           ) : (
             <>
+              {/* Layout para Navegadores de Escritorio (Desktop) */}
               <View style={styles.headerTextBox}>
                 <Text style={styles.welcomeText}>¡Hola, {userName}!</Text>
                 <Text style={styles.subtitleText}>
@@ -256,6 +315,7 @@ export default function HomeScreen({ navigation }) {
                 <AnimatedPressable
                   style={styles.logoutButton}
                   hoverStyle={styles.darkButtonHover}
+                  onSignOut={handleSignOut}
                   onPress={handleSignOut}
                 >
                   <Text style={styles.logoutText}>Cerrar sesión</Text>
@@ -265,7 +325,10 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
 
+        {/* TARJETA CONTENEDORA PRINCIPAL */}
         <View style={[styles.mainCard, isMobile && styles.mainCardMobile]}>
+          
+          {/* BARRA DE BÚSQUEDA Y FILTROS */}
           <View style={[styles.searchRow, isMobile && styles.searchRowMobile]}>
             <View style={[styles.searchBox, isMobile && styles.searchBoxMobile]}>
               <Text style={styles.searchIcon}>⌕</Text>
@@ -279,7 +342,8 @@ export default function HomeScreen({ navigation }) {
               />
             </View>
 
-           <View
+            {/* Selector Desplegable: Filtro por Tiempo */}
+            <View
               style={[
                 styles.filterWrapper,
                 styles.timeFilterBox,
@@ -294,7 +358,7 @@ export default function HomeScreen({ navigation }) {
                   style={[styles.filterArrow, isMobile && styles.filterArrowMobile]}
                   onPress={() => {
                     setShowTimeFilters(!showTimeFilters);
-                    setShowCategoryFilters(false);
+                    setShowCategoryFilters(false); // Cierre de seguridad del menú hermano
                   }}
                 >
                   <Text style={styles.filterArrowText}>
@@ -321,6 +385,7 @@ export default function HomeScreen({ navigation }) {
               )}
             </View>
 
+            {/* Selector Desplegable: Filtro por Categorías */}
             <View
               style={[
                 styles.filterWrapper,
@@ -337,7 +402,7 @@ export default function HomeScreen({ navigation }) {
                   style={[styles.filterArrow, isMobile && styles.filterArrowMobile]}
                   onPress={() => {
                     setShowCategoryFilters(!showCategoryFilters);
-                    setShowTimeFilters(false);
+                    setShowTimeFilters(false); // Cierre de seguridad del menú hermano
                   }}
                 >
                   <Text style={styles.filterArrowText}>
@@ -365,6 +430,7 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
 
+          {/* GRID RESPONSIVO DE EVENTOS COMUNITARIOS */}
           <View style={styles.eventsGrid}>
             {filteredEvents.length > 0 ? (
               filteredEvents.map((item) => (
@@ -373,17 +439,19 @@ export default function HomeScreen({ navigation }) {
                   style={[
                     styles.eventCard,
                     {
-                      width: columns === 1 ? '100%' : `${100 / columns}%`,
+                      width: columns === 1 ? '100%' : `${100 / columns}%`, // Calcula el ancho de la tarjeta según la pantalla
                     },
                   ]}
                 >
                   <View style={styles.eventCardInner}>
+                    {/* Baner de Identidad Visual del Card basado en Emojis */}
                     <View style={styles.cardImage}>
                       <Text style={styles.cardIcon}>
                         {CATEGORY_EMOJIS[item.category] || '🎉'}
                       </Text>
                     </View>
 
+                    {/* Contenido Descriptivo e Informativo */}
                     <View style={styles.cardContent}>
                       <View style={styles.cardTopInfo}>
                         <View style={styles.creatorPill}>
@@ -391,7 +459,6 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.creatorBold}>Creado por:</Text> {(() => {
                               const cb = item.createdBy;
                               if (!cb || cb === 'anon') return 'Usuario';
-                              // Si es un UID largo y el usuario actual es el creador, mostramos su nombre real
                               const isUid = cb.length > 20 && !cb.includes(' ') && !cb.includes('@');
                               if (isUid) {
                                 if (currentUser && (cb === currentUser.uid || item.createdByUid === currentUser.uid)) {
@@ -414,6 +481,7 @@ export default function HomeScreen({ navigation }) {
                       <Text style={styles.eventInfo}>⏰ {item.time}</Text>
                       <Text style={styles.eventLocation}>📍 {item.location}</Text>
 
+                      {/* Botón de Enlace para redirección al detalle específico */}
                       <AnimatedPressable
                         style={styles.detailButton}
                         hoverStyle={styles.darkButtonHover}
@@ -426,12 +494,14 @@ export default function HomeScreen({ navigation }) {
                 </View>
               ))
             ) : (
+              // Mensaje Alternativo por si no hay coincidencias lógicas de filtrado
               <Text style={styles.emptyText}>No hay eventos disponibles.</Text>
             )}
           </View>
         </View>
       </ScrollView>
 
+      {/* POPUP FLOTANTE DE ACCIÓN EXITOSA (ANIMADO) */}
       {showSuccess && (
         <Animated.View
           style={[
@@ -446,6 +516,7 @@ export default function HomeScreen({ navigation }) {
         </Animated.View>
       )}
 
+      {/* OVERLAY DEL FORMULARIO DE CREACIÓN (MODAL CONTEXTUAL CON DESENFOQUE) */}
       {showCreateForm && (
         <View style={styles.modalOverlay}>
           <CreateEventScreen
@@ -453,12 +524,13 @@ export default function HomeScreen({ navigation }) {
             onClose={() => setShowCreateForm(false)}
             onCreated={() => {
               setShowCreateForm(false);
-              setShowSuccess(true);
+              setShowSuccess(true); // Despierta el efecto de guardado
             }}
           />
         </View>
       )}
 
+      {/* BOTÓN FLOTANTE DE ACCIÓN RÁPIDA (FAB) PARA LA APERTURA DEL FORMULARIO */}
       <AnimatedPressable
         style={styles.fab}
         hoverStyle={styles.fabHover}
@@ -470,6 +542,7 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
+// Hoja de estilos premium optimizada con paleta institucional verde, z-indexings controlados y sombras fluidas
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -943,9 +1016,9 @@ const styles = StyleSheet.create({
   },
 
   buttonPressed: {
-  transform: [{ scale: 0.9 }],
-  opacity: 0.7,
-},
+    transform: [{ scale: 0.9 }],
+    opacity: 0.7,
+  },
 
   buttonHover: {
     transform: [{ scale: 1.04 }],
