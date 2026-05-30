@@ -42,9 +42,8 @@ async function scheduleEventNotification(event) {
 }
 
 export default function EventDetailScreen({ route, navigation }) {
-  const { event } = route.params || {
-    event: { title: 'Evento', date: '', time: '', location: '', description: '', attendees: [] },
-  };
+  const routeParams = route.params || {};
+  const event = routeParams.event || { id: '', title: 'Evento', date: '', time: '', location: '', description: '', attendees: [] };
   const { isMobile, hPad, fs } = useResponsive();
 
   const [rating, setRating]             = useState(0);
@@ -326,7 +325,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff', padding: 20, borderRadius: 16,
     borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 16,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0px 2px 6px rgba(0,0,0,0.05)' },
+      default: { shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }
+    })
   },
   title: { fontWeight: 'bold', color: '#1E90FF', marginBottom: 16, textAlign: 'center' },
   infoRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f3f5' },
@@ -366,7 +368,10 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 30, left: 20, right: 20,
     backgroundColor: '#334155', borderRadius: 14, padding: 14,
     alignItems: 'center', elevation: 10, zIndex: 9999,
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(0,0,0,0.2)' },
+      default: { shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 }
+    })
   },
   toastSuccess: { backgroundColor: '#16a34a' },
   toastError:   { backgroundColor: '#dc2626' },

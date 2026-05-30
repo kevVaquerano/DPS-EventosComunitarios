@@ -82,6 +82,11 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleGoogleRegister = async () => {
+    if (Platform.OS !== 'web') {
+      showMessage('No disponible', 'El inicio con Google vía Popup solo funciona en la web.');
+      return;
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
@@ -197,10 +202,10 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     alignSelf: 'center',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 8px rgba(0,0,0,0.1)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8 }
+    }),
     elevation: 5,
   },
 

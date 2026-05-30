@@ -51,6 +51,11 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleGoogleLogin = async () => {
+    if (Platform.OS !== 'web') {
+      showMessage('No disponible', 'Usa la web para el acceso con Google o configura Firebase Native.');
+      return;
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
